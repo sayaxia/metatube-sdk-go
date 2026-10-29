@@ -106,11 +106,17 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v7
 
-      - name: Download image artifacts
+      - name: Download amd64 image
         uses: actions/download-artifact@v4
         with:
+          name: image-amd64
           path: dist
-          merge-multiple: true
+
+      - name: Download arm64 image
+        uses: actions/download-artifact@v4
+        with:
+          name: image-arm64
+          path: dist
 
       - name: Generate compose file and instructions
         env:
