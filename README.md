@@ -8,6 +8,12 @@
 
 Metadata Tube SDK in Golang.
 
+> **This is a personal fork (`v1.4.0-ltx.N`)** of the upstream project, maintained at
+> [sayaxia/metatube-sdk-go](https://github.com/sayaxia/metatube-sdk-go). It adds support for
+> AI-restored releases whose file names carry a restoration suffix (e.g. `ABP-030-LTX`).
+> See [FORK.md](FORK.md) for the full delta, versioning scheme and Docker instructions.
+> Upstream remains the source of truth for everything else.
+
 ## Contents
 
 - [MetaTube SDK Go](#metatube-sdk-go)

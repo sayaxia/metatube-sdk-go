@@ -1,49 +1,219 @@
-name: Publish Go Releases
+name: Release Docker Package (LTX Fork)
 
 concurrency:
   group: release-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 on:
   push:
     tags:
-      - '*'
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to package (e.g. v1.4.0-ltx.1)'
+        required: true
+
+permissions:
+  contents: write
+  packages: write
 
 jobs:
-  build:
-    name: Build
+
+  prepare:
+    name: Prepare
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.vars.outputs.tag }}
+      version: ${{ steps.vars.outputs.version }}
     steps:
-      - name: Check out code into the Go module directory
+      - name: Check out code
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          ref: ${{ github.event.inputs.tag || github.ref }}
 
-      - name: Setup Go
-        uses: actions/setup-go@v6
+      - name: Resolve version
+        id: vars
+        run: |
+          TAG="${{ github.event.inputs.tag }}"
+          if [ -z "${TAG}" ]; then TAG="${GITHUB_REF_NAME}"; fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+  image:
+    name: Image (${{ matrix.arch }})
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+          - arch: arm64
+            platform: linux/arm64
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
         with:
-          check-latest: true
-          go-version-file: 'go.mod'
+          fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.tag }}
 
-      - name: Cache go module
-        uses: actions/cache@v4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
         with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
+          platforms: all
 
-      - name: Build
-        if: startsWith(github.ref, 'refs/tags/')
-        run: make releases
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
 
-      - name: Upload Releases
+      - name: Build image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          load: true
+          platforms: ${{ matrix.platform }}
+          build-args: |
+            VERSION=${{ needs.prepare.outputs.version }}
+            COMMIT=${{ github.sha }}
+          tags: metatube-server:${{ needs.prepare.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Export docker image
+        run: |
+          NAME="metatube-server-${{ needs.prepare.outputs.version }}-linux-${{ matrix.arch }}"
+          docker save "metatube-server:${{ needs.prepare.outputs.version }}" | gzip -9 > "${NAME}.tar.gz"
+          sha256sum "${NAME}.tar.gz" > "${NAME}.tar.gz.sha256"
+          ls -lh "${NAME}.tar.gz"
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-${{ matrix.arch }}
+          path: |
+            metatube-server-*.tar.gz
+            metatube-server-*.tar.gz.sha256
+          if-no-files-found: error
+
+  release:
+    name: Publish Release
+    needs: [prepare, image]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Download image artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generate compose file and instructions
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          OWNER: ${{ github.repository_owner }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          IMAGE="ghcr.io/${OWNER}/metatube-server:${VERSION}"
+
+          cat > dist/docker-compose.yml <<EOF
+          # MetaTube Server (LTX fork) ${TAG}
+          services:
+            metatube:
+              image: ${IMAGE}
+              container_name: metatube
+              ports:
+                - "8080:8080"
+              restart: unless-stopped
+              environment:
+                - TZ=Asia/Shanghai
+              volumes:
+                - ./data:/data
+              command: -dsn /data/metatube.db -port 8080
+          EOF
+
+          cat > dist/INSTALL.md <<EOF
+          # MetaTube Server ${TAG} 安装说明
+
+          ## 方式一：直接加载镜像包（离线可用）
+
+          \`\`\`bash
+          # 1. 下载并校验
+          gunzip -c metatube-server-${VERSION}-linux-amd64.tar.gz | docker load
+          # 或先校验：sha256sum -c metatube-server-${VERSION}-linux-amd64.tar.gz.sha256
+
+          # 2. 运行
+          docker run -d --name metatube -p 8080:8080 \\
+            -v metatube-data:/data \\
+            metatube-server:${VERSION} -dsn /data/metatube.db -port 8080
+          \`\`\`
+
+          ## 方式二：docker compose
+
+          \`\`\`bash
+          docker compose up -d
+          \`\`\`
+
+          ## 方式三：直接拉取 GHCR 镜像（多架构）
+
+          \`\`\`bash
+          docker pull ${IMAGE}
+          docker run -d --name metatube -p 8080:8080 -v metatube-data:/data ${IMAGE}
+          \`\`\`
+
+          > 若 GHCR 包为私有，请先执行 \`docker login ghcr.io\`，或在 GitHub 的
+          > Package settings 中把该包改为 Public。
+
+          ## 验证
+
+          \`\`\`bash
+          docker exec metatube /metatube-server -version   # 应显示 ${TAG}
+          curl 'http://127.0.0.1:8080/v1/movies/search?q=ABP-030-LTX' | head -c 300
+          \`\`\`
+
+          本版本相对上游 v1.4.0 的改动见 \`FORK.md\`。
+          EOF
+
+          cat > dist/RELEASE_NOTES.md <<EOF
+          ## MetaTube Server ${TAG}
+
+          基于上游 [metatube-community/metatube-sdk-go](https://github.com/metatube-community/metatube-sdk-go) v1.4.0 的个人构建版本。
+
+          ### 本版改动
+          - 修复 AI 马赛克修复工具（Jasna / LTX 模型）追加的 \`-LTX\` 后缀导致番号无法匹配的问题：
+          \`ABP-030-LTX\` / \`ABP-030_LTX\` / \`ABP-030-LTX-C\` 现在都会归一化为 \`ABP-030\` 后再检索。
+
+          ### 资产说明
+          | 文件 | 说明 |
+          | --- | --- |
+          | \`metatube-server-${VERSION}-linux-amd64.tar.gz\` | amd64 \`docker load\` 镜像包 |
+          | \`metatube-server-${VERSION}-linux-arm64.tar.gz\` | arm64 \`docker load\` 镜像包 |
+          | \`docker-compose.yml\` | 开箱即用的 compose 文件 |
+          | \`INSTALL.md\` | 安装与验证步骤 |
+          | \`*.sha256\` | 校验文件 |
+
+          GHCR: \`${IMAGE}\`
+
+          构建日志：${RUN_URL}
+          EOF
+
+          ls -lh dist
+
+      - name: Publish release
         uses: softprops/action-gh-release@v3
-        if: startsWith(github.ref, 'refs/tags/')
         with:
-          body: _Auto Released by Actions_
-          files: build/*
-          draft: false
-          prerelease: false
-          repository: metatube-community/metatube-server-releases
-          token: ${{ secrets.ORG_PAT }}
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: MetaTube Server ${{ needs.prepare.outputs.tag }} (LTX Fork)
+          body_path: dist/RELEASE_NOTES.md
+          files: |
+            dist/metatube-server-*.tar.gz
+            dist/metatube-server-*.tar.gz.sha256
+            dist/docker-compose.yml
+            dist/INSTALL.md
+          fail_on_unmatched_files: false
