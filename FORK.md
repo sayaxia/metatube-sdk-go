@@ -5,6 +5,7 @@
 
 - 上游基线版本：**v1.4.0**（commit `fdadc9c`）
 - 本分支版本号：**v1.4.0-ltx.N**（`N` 为本地修订号，与上游 tag 严格区分）
+- 番号修复的上游 PR：[metatube-community/metatube-sdk-go#388](https://github.com/metatube-community/metatube-sdk-go/pull/388)
 - Docker 镜像：`ghcr.io/sayaxia/metatube-server:<version>` / `ghcr.io/sayaxia/metatube-server:ltx`
 
 ## 改动内容
