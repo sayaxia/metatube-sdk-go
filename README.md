@@ -6,6 +6,8 @@
 [![GitHub License](https://img.shields.io/github/license/metatube-community/metatube-sdk-go?color=e4682a&logo=apache&style=flat-square)](https://github.com/metatube-community/metatube-sdk-go/blob/main/LICENSE)
 [![Tag](https://img.shields.io/github/v/tag/metatube-community/metatube-sdk-go?color=%23ff8936&logo=fitbit&style=flat-square)](https://github.com/metatube-community/metatube-sdk-go/tags)
 
+**English** | [简体中文](README.zh-CN.md)
+
 Metadata Tube SDK in Golang.
 
 > **This is a personal fork (`v1.4.0-ltx.N`)** of the upstream project, maintained at
