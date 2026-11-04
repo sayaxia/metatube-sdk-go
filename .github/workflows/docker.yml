@@ -71,6 +71,10 @@ jobs:
             COMMIT=${{ github.sha }}
           tags: |
             ${{ env.IMAGE }}:dev
+          # 关闭 attestation：否则推上去是 OCI index + unknown/unknown 条目，
+          # Docker 18.09（DSM 6）等老客户端会报 no matching manifest
+          provenance: false
+          sbom: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -88,5 +92,7 @@ jobs:
           tags: |
             ${{ env.IMAGE }}:${{ steps.shell.outputs.version }}
             ${{ env.IMAGE }}:ltx
+          provenance: false
+          sbom: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
