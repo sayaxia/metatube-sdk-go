@@ -73,6 +73,18 @@ docker run -d --name metatube -p 8080:8080 \
   -dsn /data/metatube.db -port 8080
 ```
 
+### 群晖 DSM 6 注意事项
+
+DSM 6 的 Docker 套件停留在 **18.09.8 + docker-compose 1.24**，有四个坑已经在本分支处理：
+
+| 问题 | 处理 |
+| --- | --- |
+| 没有 `docker compose` 子命令 | 用 `docker-compose`（v1） |
+| compose v1 缺 `version:` 会按 legacy 格式解析而报错 | Release 里的 `docker-compose.yml` 已带 `version: "3.8"` |
+| Docker 18.09 不认 OCI index，pull 会报 `no matching manifest` / `unsupported media type` | 自 `v1.4.0-ltx.4` 起镜像以 Docker manifest list 发布（`oci-mediatypes=false`），18.09 可正常 pull |
+| GUI 只能导入未压缩 `.tar`，且注册表搜不到 ghcr.io | 离线包先 `gunzip -c x.tar.gz > x.tar` 再导入，或 SSH 里 `docker load -i x.tar.gz` |
+
+
 ## 与上游同步
 
 ```bash
