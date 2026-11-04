@@ -71,7 +71,6 @@ jobs:
             COMMIT=${{ github.sha }}
           tags: |
             ${{ env.IMAGE }}:dev
-            ${{ env.IMAGE }}:ltx
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

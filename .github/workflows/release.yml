@@ -130,6 +130,9 @@ jobs:
 
           cat > dist/docker-compose.yml <<EOF
           # MetaTube Server (LTX fork) ${TAG}
+          # version 为兼容 docker-compose v1（DSM 6、旧版 Linux）保留，compose v2 会忽略并提示 obsolete
+          version: "3.8"
+
           services:
             metatube:
               image: ${IMAGE}
@@ -147,23 +150,37 @@ jobs:
           cat > dist/INSTALL.md <<EOF
           # MetaTube Server ${TAG} 安装说明
 
-          ## 方式一：直接加载镜像包（离线可用）
+          ## 方式一：离线加载镜像包（内网 / DSM 6 推荐）
 
           \`\`\`bash
-          # 1. 下载并校验
-          gunzip -c metatube-server-${VERSION}-linux-amd64.tar.gz | docker load
-          # 或先校验：sha256sum -c metatube-server-${VERSION}-linux-amd64.tar.gz.sha256
+          # 1. 校验并导入（docker load 可直接读 .tar.gz；旧版本报错时用下一行）
+          sha256sum -c metatube-server-${VERSION}-linux-amd64.tar.gz.sha256
+          docker load -i metatube-server-${VERSION}-linux-amd64.tar.gz
+          # gunzip -c metatube-server-${VERSION}-linux-amd64.tar.gz | docker load
 
-          # 2. 运行
+          # 2. 运行（导入后的镜像名是 metatube-server:${VERSION}）
           docker run -d --name metatube -p 8080:8080 \\
             -v metatube-data:/data \\
             metatube-server:${VERSION} -dsn /data/metatube.db -port 8080
           \`\`\`
 
-          ## 方式二：docker compose
+          ## 方式二：docker compose（在线拉取 GHCR）
 
           \`\`\`bash
-          docker compose up -d
+          cd <本文件所在目录>
+          docker compose up -d          # compose v2（Docker 20.10+ / DSM 7）
+          docker-compose up -d          # compose v1（DSM 6 只能用这个）
+
+          # 已有容器需要更新镜像时
+          docker compose pull && docker compose up -d        # v2
+          docker-compose pull && docker-compose up -d        # v1
+          \`\`\`
+
+          用离线包又想让 compose 跑起来，先打个别名，再把 compose 里的 image 改成同名：
+
+          \`\`\`bash
+          docker tag metatube-server:${VERSION} metatube-server:ltx
+          # 之后 image: metatube-server:ltx，且不要再执行 pull
           \`\`\`
 
           ## 方式三：直接拉取 GHCR 镜像（多架构）
@@ -175,6 +192,16 @@ jobs:
 
           > 若 GHCR 包为私有，请先执行 \`docker login ghcr.io\`，或在 GitHub 的
           > Package settings 中把该包改为 Public。
+
+          ## DSM 6 / 群晖注意事项
+
+          1. DSM 6 的 Docker 套件只带 **docker-compose v1**，没有 \`docker compose\` 子命令，命令必须用 \`docker-compose\`。
+          2. compose v1 要求文件里有 \`version:\` 字段（本目录的 \`docker-compose.yml\` 已内置 \`version: "3.8"\`），否则会按 legacy 格式解析而报错。
+          3. DSM 6 的「注册表」搜不到 ghcr.io，需 SSH 里 \`docker pull\`；或用「映像 → 新增 → 从文件添加」导入，**GUI 只认未压缩的 .tar**，先 \`gunzip -c x.tar.gz > x.tar\`。
+          4. 容器名冲突（之前用 docker run 跑过）：先 \`docker rm -f metatube\` 再 compose up。
+          5. compose 里的 \`./data\` 是相对路径，SSH 下务必先 \`cd\` 到 compose 所在目录；也可改成 \`/volume1/docker/metatube/data\`。
+          6. 拉取时若报 TLS handshake timeout / x509，说明根证书或出网有问题，改用离线包最省事。
+          7. armv7 机型（如 DS213j、DS115j）没有对应镜像，仅提供 amd64 / arm64。
 
           ## 验证
 
