@@ -36,7 +36,9 @@ Jasna 等去马赛克工具在使用 **LTX** 模型修复后，会把模型名�
 修复后：ABP-030-LTX.mp4
 ```
 
-除了 `-LTX`，同类工具还会写 `_LTX`、`-BasicVSR++`、`-restored` / `__restored`。
+除了 `-LTX`，同类工具还会写 `_LTX`、`-BasicVSR++`、`-restored` / `__restored`，
+并可能再叠加一层工具标记，如 `JUR-110_restored_wm.mp4`、`SONE-521_restored.LTX_wm.mp4`
+（`_wm` 为带水印压制版，`.LTX` 用点号分隔）。
 这些后缀**都是无码破解**的标记：Plex 插件侧统一判为 `u.png` 角标（带中文字幕则 `uc.png`）
 并写同一个「无码破解」类型标签，本质上是同一个版别，只是拼写不同。
 
@@ -44,8 +46,9 @@ MetaTube 在检索前会对文件名做番号归一化，但原逻辑只剥离 `
 等已知后缀，`-LTX` 被当成番号的一部分，于是所有 provider 都在搜 `ABP-030-LTX` → 返回空结果 → 自动刮削失败；
 `-restored` 还会被末尾的 `A|B|C|D` 规则吃掉一个 `d`，变成 `ABP-030-restore`。
 
-本分支在归一化阶段把 `ltx|restored|basicvsr(?:\+\+)?` 一并剥离，`ABP-030-LTX`
-和 `ABP-030__restored` 都会被正确识别为 `ABP-030`。
+本分支在归一化阶段把 `ltx|restored|basicvsr(?:\+\+)?|wm` 一并**循环剥离**，
+因此叠加顺序不影响结果：`ABP-030-LTX`、`ABP-030__restored`、
+`JUR-110_restored_wm` 都会被正确识别为裸番号。
 该修复已作为 PR 提交上游：[#388](https://github.com/metatube-community/metatube-sdk-go/pull/388)；
 上游合并后即可直接用官方镜像，无需继续使用本分支。
 
@@ -152,8 +155,9 @@ sha256sum -c metatube-server-1.4.0-ltx.1-linux-amd64.tar.gz.sha256
 
 修复后的 `number.Trim` 行为：
 
-`number.Trim` 识别的后缀词表为 `ltx|restored|basicvsr(?:\+\+)?`，大小写不敏感，
-分隔符 `-` / `_` / 空格及其连续重复都支持；只剥尾部，番号前缀里的同名字符串不受影响。
+`number.Trim` 识别的尾部词表为 `ltx|restored|basicvsr(?:\+\+)?|wm`，大小写不敏感，
+分隔符 `-` / `_` / 空格及其连续重复都支持；从尾部**循环剥离**，多个标记叠加、顺序颠倒都能剥干净。
+只剥尾部，番号前缀里的同名字符串不受影响；`wm` 单独出现（如 `ABP-030_wm.mp4`）也会被剥掉。
 
 | 原始文件名 | 归一化结果 |
 | --- | --- |
@@ -166,7 +170,11 @@ sha256sum -c metatube-server-1.4.0-ltx.1-linux-amd64.tar.gz.sha256
 | `ABP-030__restored.mp4` | `ABP-030` |
 | `ABP-030-restored.mp4` | `ABP-030` |
 | `ABP-030_LTX__restored.mp4` | `ABP-030` |
-| `LTX-030.mp4` / `RESTORED-030.mp4` | 原样保留（前缀不受影响） |
+| `SONE-521_restored.LTX_wm.mp4` | `SONE-521` |
+| `JUR-110_restored_wm.mp4` | `JUR-110` |
+| `MISM-399_restored_wm.mp4` | `MISM-399` |
+| `ABP-030_wm.mp4` / `ABP-030_LTX_wm.mp4` | `ABP-030` |
+| `LTX-030.mp4` / `RESTORED-030.mp4` / `WM-030.mp4` | 原样保留（前缀不受影响） |
 
 验证方式：
 

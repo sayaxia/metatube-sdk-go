@@ -6,14 +6,19 @@ import (
 	"strings"
 )
 
-// restoreTags are suffixes appended by AI mosaic-restoration tools, which
-// are not a part of the movie number. For instance, Jasna appends "-LTX"
-// when the LTX restoration model is used (e.g. "ABP-030-LTX"), and such
-// numbers must be trimmed to "ABP-030" before searching, otherwise they
-// cannot be matched by any provider. "restored" is another spelling used
-// by the same tools (often as "__restored"); without trimming it the
-// trailing "d" would be eaten by the A/B/C/D segment rule instead.
-const restoreTags = `ltx|restored|basicvsr(?:\+\+)?`
+// trailingTags are suffixes appended by AI mosaic-restoration tools, which
+// are not a part of the movie number. Jasna appends "-LTX" when the LTX
+// restoration model is used (e.g. "ABP-030-LTX"); other spellings include
+// "__restored" and "-BasicVSR++". These must be trimmed before searching,
+// otherwise no provider can match the number: "-restored" would even lose
+// its trailing "d" to the A/B/C/D segment rule.
+//
+// Encodes may stack several tool marks after the restoration tag, e.g.
+// "JUR-110_restored_wm.mp4" or "SONE-521_restored.LTX_wm.mp4", where "_wm"
+// marks a watermarked encode. Every mark is trimmed repeatedly from the end,
+// so the order in which the tools were applied does not matter. Add new
+// tool marks here when another spelling shows up in the library.
+const trailingTags = `ltx|restored|basicvsr(?:\+\+)?|wm`
 
 func Trim(s string) string {
 	const maxExtLength = 7
@@ -35,7 +40,7 @@ func Trim(s string) string {
 		ReplaceAllString(s, "${pattern}") // trim makers
 	s = regexp.MustCompile(`^(?i)\s*(FC2[-_]?PPV)[-_]`).
 		ReplaceAllString(s, "FC2-") // normalize fc2 prefixes
-	for re := regexp.MustCompile(`(?i)([-_](c|uc|ch|cd\d{1,2}|` + restoreTags + `)|hhb\d*|ch|A|B|C|D)\s*$`); re.MatchString(s); {
+	for re := regexp.MustCompile(`(?i)([-_](c|uc|ch|cd\d{1,2}|` + trailingTags + `)|hhb\d*|ch|A|B|C|D)\s*$`); re.MatchString(s); {
 		s = re.ReplaceAllString(s, "") // repeatedly trim suffixes
 	}
 	return strings.TrimSpace(s)

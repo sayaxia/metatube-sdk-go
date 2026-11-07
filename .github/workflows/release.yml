@@ -220,8 +220,15 @@ jobs:
           基于上游 [metatube-community/metatube-sdk-go](https://github.com/metatube-community/metatube-sdk-go) v1.4.0 的个人构建版本。
 
           ### 本版改动
-          - 修复 AI 马赛克修复工具（Jasna / LTX 模型）追加的 \`-LTX\` 后缀导致番号无法匹配的问题：
-          \`ABP-030-LTX\` / \`ABP-030_LTX\` / \`ABP-030-LTX-C\` 现在都会归一化为 \`ABP-030\` 后再检索。
+          - 番号归一化：在检索前剥离 AI 修复 / 去水印工具追加的尾部标记 \`ltx\`、\`restored\`、
+          \`basicvsr\` / \`basicvsr++\`、\`wm\`，以及原有的 \`-C\` / \`-UC\` / \`-ch\` / \`-cdN\` / \`-A~D\` / \`-hhbN\`。
+          分隔符 \`-\`、\`_\`、\`.\`、空格及其连续重复都支持，多个标记叠加时从尾部循环剥离、顺序无关；
+          只处理尾部，番号前缀里的同名字符串原样保留。业务上 \`-U\` / \`-LTX\` / \`_LTX\` / \`__restored\`
+          / \`-BasicVSR++\` 都表示无码破解，插件侧统一用 \`u.png\` 角标和「无码破解」类型标签。
+          - 本轮修复两类漏判：\`-restored\` 会被末尾的 \`A|B|C|D\` 规则吃掉尾部 \`d\` 变成 \`-restore\`；
+          \`_wm\` / \`.LTX_wm\` 等工具标记叠在角标后面时旧逻辑剥不干净。
+          现在 \`ABP-030-LTX\`、\`ABP-030__restored\`、\`JUR-110_restored_wm\`、
+          \`SONE-521_restored.LTX_wm\` 都会归一化为裸番号后再检索。
           - 镜像改为以 \`-tags experimental\` 构建，编入实验池 provider（\`AVBASE\` / \`ThePornDB\` / \`AV-LEAGUE\`）。
           引用 \`AVBASE\` 的旧条目此前刷新会报 \`404 provider not found\`（刷新瞬间结束、元数据不变），本版已恢复。
           \`/v1/providers\` 应为 movie 34 / actor 3；\`MadouQu\` 因 \`Priority = 0\` 仍停用，属预期。

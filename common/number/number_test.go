@@ -212,6 +212,15 @@ func TestTrim(t *testing.T) {
 		// A leading model name is part of the number, not a suffix to trim.
 		{"LTX-030", "LTX-030"},
 		{"RESTORED-030", "RESTORED-030"},
+		{"WM-030", "WM-030"},
+		// Restoration tools may stack a watermark mark after the badge, with
+		// an underscore or a dot as separator. Every mark must be trimmed.
+		{"SONE-521_restored.LTX_wm.mp4", "SONE-521"},
+		{"JUR-110_restored_wm.mp4", "JUR-110"},
+		{"MISM-399_restored_wm.mp4", "MISM-399"},
+		{"ABP-030_LTX_wm.mp4", "ABP-030"},
+		{"ABP-030_wm.mp4", "ABP-030"},
+		{"ABP-030_LTX__restored_wm.mp4", "ABP-030"},
 	} {
 		assert.Equal(t, unit.want, Trim(unit.orig), unit.orig)
 	}

@@ -15,7 +15,8 @@ Metadata Tube SDK in Golang.
 > AI-restored releases whose file names carry a restoration suffix (`-LTX`, `-BasicVSR++`,
 > `-restored` / `__restored`), e.g. `ABP-030-LTX` or `ABP-030__restored`. All of these
 > suffixes denote the same uncensored release and are trimmed back to the bare number
-> before any provider lookup.
+> before any provider lookup. Stacked tool marks are handled too, including a watermark
+> tag and dot separators (`JUR-110_restored_wm`, `SONE-521_restored.LTX_wm`).
 > See [FORK.md](FORK.md) for the full delta, versioning scheme and Docker instructions.
 > Upstream remains the source of truth for everything else.
 
