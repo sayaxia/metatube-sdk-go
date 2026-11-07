@@ -209,8 +209,9 @@ func TestTrim(t *testing.T) {
 		{"ABP-030__RESTORED.mp4", "ABP-030"},
 		{"ABP-030-restored", "ABP-030"},
 		{"ABP-030_LTX__restored", "ABP-030"},
-		{"LTX-030", "LTX-030"}, // prefix must be kept.
-		{"RESTORED-030", "RESTORED-030"}, // prefix must be kept.
+		// A leading model name is part of the number, not a suffix to trim.
+		{"LTX-030", "LTX-030"},
+		{"RESTORED-030", "RESTORED-030"},
 	} {
 		assert.Equal(t, unit.want, Trim(unit.orig), unit.orig)
 	}
