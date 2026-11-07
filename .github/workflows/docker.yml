@@ -69,6 +69,7 @@ jobs:
           build-args: |
             VERSION=dev-${{ steps.shell.outputs.version }}
             COMMIT=${{ github.sha }}
+            BUILD_TAGS=experimental
           tags: |
             ${{ env.IMAGE }}:dev
           # 关闭 attestation：否则推上去是 OCI index + unknown/unknown 条目，
@@ -89,6 +90,7 @@ jobs:
           build-args: |
             VERSION=${{ steps.shell.outputs.version }}
             COMMIT=${{ github.sha }}
+            BUILD_TAGS=experimental
           tags: |
             ${{ env.IMAGE }}:${{ steps.shell.outputs.version }}
             ${{ env.IMAGE }}:ltx

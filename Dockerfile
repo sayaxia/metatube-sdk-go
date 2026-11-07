@@ -5,12 +5,19 @@ FROM golang:alpine AS builder
 # does not contain the git history.
 ARG VERSION=unknown
 ARG COMMIT=unknown
+# Go build tags. Upstream builds with none; this fork enables the experimental
+# provider pool (engine/register_exp.go: AVBASE, ThePornDB, AV-LEAGUE,
+# MadouQu) because a lot of library items were matched against AVBASE and
+# break with `404 provider not found` once it is missing.
+# Pass --build-arg BUILD_TAGS= to get a plain upstream build.
+ARG BUILD_TAGS=experimental
 
 WORKDIR /src
 COPY . /src
 
 RUN apk add --update --no-cache --no-progress make git \
-    && make server BUILD_VERSION="${VERSION#v}" BUILD_COMMIT="${COMMIT}"
+    && make server BUILD_VERSION="${VERSION#v}" BUILD_COMMIT="${COMMIT}" \
+       BUILD_TAGS="${BUILD_TAGS}"
 
 FROM alpine:latest
 LABEL org.opencontainers.image.licenses=Apache-2.0

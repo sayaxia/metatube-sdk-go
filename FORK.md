@@ -15,6 +15,7 @@
 | `common/number` 番号归一化 | 剥离 AI 修复模型追加的后缀（`-LTX`、`-BasicVSR++`），恢复 `ABP-030-LTX → ABP-030` 的匹配 | ✅ 是（PR） |
 | 同步上游 `FC2DB` provider | FC2 官方详情页改为强制登录后，用 `fc2db.net` 兜底，恢复 FC2-PPV 番号刮削 | ✅ 上游已合并（#389），本分支同步 |
 | `Dockerfile` | 支持通过 build-arg 注入 `VERSION` / `COMMIT`，保证镜像内 `-version` 显示分支版本 | ❌ 仅本分支 |
+| 镜像默认 `-tags experimental` | 编入实验池 provider（AVBASE / ThePornDB / AV-LEAGUE），见下节 | ❌ 仅本分支 |
 | `.github/workflows/docker.yml` | 推送到本仓库 GHCR 命名空间（上游固定为 `metatube-community`，fork 无权限） | ❌ 仅本分支 |
 | `.github/workflows/release.yml` | tag 触发构建 `docker load` 可用的镜像包并发布到 Releases | ❌ 仅本分支 |
 | `docker-compose.yaml` | 默认使用本分支镜像与本地 SQLite | ❌ 仅本分支 |
@@ -61,6 +62,52 @@ curl 'http://127.0.0.1:8080/v1/movies/search?q=FC2-PPV-4985867'
 
 顺带记录：`fc2ppvdb.com` 在部分网络下 TLS 握手失败（Cloudflare 边缘不可达），
 `javten.com`（`fc2hub` 的数据源）对非浏览器请求返回 403，所以 `FC2DB` 目前是最可靠的兜底源。
+
+## 实验池 provider（`-tags experimental`）
+
+上游把一部分稳定性未知的 provider 放在 `engine/register_exp.go`，只有 `-tags experimental`
+才会编入。默认构建没有它们，于是**引用过这些 provider 的旧条目会永久刮削失败**：
+Plex 侧日志报 `APIError: 404 <provider not found>`，刷新 5 毫秒就结束，元数据保持旧值。
+
+本分支的镜像默认带 `-tags experimental`（`Dockerfile` 的 `ARG BUILD_TAGS=experimental`），
+`docker.yml` / `release.yml` 也会显式传入，保证 CI 与本地一致。
+
+| provider | 类型 | 优先级 | 说明 |
+| --- | --- | --- | --- |
+| `AVBASE` | movie | `1000 - 4` | 番号覆盖广，素人/无码配信常有演员和简介；排在 FANZA（1001）之后、JavBus（995）之前 |
+| `ThePornDB` | movie ×2 + actor | — | `ThePornDBMovie` / `ThePornDBScene` / `ThePornDBActor` |
+| `AV-LEAGUE` | actor | `1000` | 仅演员，不参与番号检索 |
+| `MadouQu` | movie | `0` | `Priority = 0` 表示默认停用，即使编入也不会出现（需要 `MT_MOVIE_PROVIDER_MADOUQU__PRIORITY` 才启用） |
+
+编入后的实际差异（`/v1/providers`，2026-11 实测）：
+
+```
+默认构建: movie 31 / actor 1  (Gfriends)
+实验构建: movie 34 / actor 3  (+AVBASE, +ThePornDBMovie, +ThePornDBScene,
+                               +AV-LEAGUE, +ThePornDBActor)
+```
+
+只增不减，默认池的 31 个全部保留；优先级也不冲突，FANZA 依旧排在 AVBASE 前面，
+所以正常新片的搜索结果顺序不变。想让某个 provider 的优先级生效或失效，用环境变量
+`MT_MOVIE_PROVIDER_<NAME>__PRIORITY` 覆盖即可，不必重新构建。
+
+需要退回纯上游构建时：
+
+```bash
+docker build --build-arg BUILD_TAGS= -t metatube-server:plain .
+# 或本地
+make server            # 无 tag
+make server-experimental  # 带实验池
+```
+
+### 排查「刷新瞬间结束」
+
+```bash
+curl -s 'http://127.0.0.1:8080/v1/movies/AVBASE/<id>'    # 该 provider 是否存在且有数据
+docker logs metatube 2>&1 | grep 'Disable movie provider'  # 被停用的 provider 会在这里出现
+```
+
+`Disable movie provider: MadouQu` 属于预期输出（`Priority = 0`），不是故障。
 
 ## 安装
 

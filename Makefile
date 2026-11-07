@@ -52,6 +52,10 @@ development:
 server:
 	$(GO_BUILD) -o $(BUILD_DIR)/$(SERVER_NAME) $(SERVER_CODE)
 
+server-experimental: BUILD_TAGS += experimental
+server-experimental:
+	$(GO_BUILD) -o $(BUILD_DIR)/$(SERVER_NAME) $(SERVER_CODE)
+
 darwin-amd64:
 	GOARCH=amd64 GOOS=darwin $(GO_BUILD) -o $(BUILD_DIR)/$(SERVER_NAME)-$@ $(SERVER_CODE)
 
