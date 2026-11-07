@@ -203,7 +203,14 @@ func TestTrim(t *testing.T) {
 		{"hhd800.com@SSIS-329-LTX-4K.mp4", "SSIS-329"},
 		{"FC2-PPV-123456-LTX.mp4", "FC2-123456"},
 		{"ABP-030-BasicVSR++", "ABP-030"},
+		// "restored" is used by the same tools, usually with a doubled
+		// separator. Both spellings must trim back to the bare number.
+		{"ABP-030__restored", "ABP-030"},
+		{"ABP-030__RESTORED.mp4", "ABP-030"},
+		{"ABP-030-restored", "ABP-030"},
+		{"ABP-030_LTX__restored", "ABP-030"},
 		{"LTX-030", "LTX-030"}, // prefix must be kept.
+		{"RESTORED-030", "RESTORED-030"}, // prefix must be kept.
 	} {
 		assert.Equal(t, unit.want, Trim(unit.orig), unit.orig)
 	}

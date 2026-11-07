@@ -12,7 +12,7 @@
 
 | 改动 | 说明 | 是否提交上游 |
 | --- | --- | --- |
-| `common/number` 番号归一化 | 剥离 AI 修复模型追加的后缀（`-LTX`、`-BasicVSR++`），恢复 `ABP-030-LTX → ABP-030` 的匹配 | ✅ 是（PR） |
+| `common/number` 番号归一化 | 剥离 AI 修复模型追加的后缀（`-LTX`、`-BasicVSR++`、`-restored` / `__restored`），恢复 `ABP-030-LTX → ABP-030` 的匹配 | ✅ 是（PR） |
 | 同步上游 `FC2DB` provider | FC2 官方详情页改为强制登录后，用 `fc2db.net` 兜底，恢复 FC2-PPV 番号刮削 | ✅ 上游已合并（#389），本分支同步 |
 | `Dockerfile` | 支持通过 build-arg 注入 `VERSION` / `COMMIT`，保证镜像内 `-version` 显示分支版本 | ❌ 仅本分支 |
 | 镜像默认 `-tags experimental` | 编入实验池 provider（AVBASE / ThePornDB / AV-LEAGUE），见下节 | ❌ 仅本分支 |
@@ -22,11 +22,15 @@
 
 ## 问题背景
 
-Jasna 等去马赛克工具在使用 LTX 模型修复后会输出 `ABC-123-LTX.mp4` 这类文件名。
+Jasna 等去马赛克工具在使用 LTX / BasicVSR 模型修复后会输出 `ABC-123-LTX.mp4`、
+`ABC-123-BasicVSR++.mp4` 这类文件名，另一些工具写 `ABC-123__restored.mp4`。
+这些后缀在业务上**都表示无码破解**（Plex 插件侧统一用 `u.png` 角标和「无码破解」类型标签），
+分隔符 `-` / `_` / 空格以及连续重复都不影响识别。
 MetaTube 原有的番号清洗逻辑只剥离 `-C`、`-UC`、`-ch`、`-cdN`、`-A~D`、`-hhbN`
-等后缀，`-LTX` 被当作番号的一部分，导致所有 provider 都检索不到结果。
+等后缀，`-LTX` 被当作番号的一部分，导致所有 provider 都检索不到结果；
+`-restored` 更会被末尾的 `A|B|C|D` 规则吃掉一个字母，变成 `ABC-123-restore`。
 
-修复后 `number.Trim` 会在检索前把这类后缀去掉：
+修复后 `number.Trim` 会在检索前把 `ltx|restored|basicvsr(?:\+\+)?` 这类后缀去掉：
 
 | 原始文件名 | 归一化结果 |
 | --- | --- |
@@ -35,7 +39,11 @@ MetaTube 原有的番号清洗逻辑只剥离 `-C`、`-UC`、`-ch`、`-cdN`、`-
 | `ABP-030-LTX-C.mp4` | `ABP-030` |
 | `hhd800.com@SSIS-329-LTX-4K.mp4` | `SSIS-329` |
 | `FC2-PPV-123456-LTX.mp4` | `FC2-123456` |
-| `LTX-030` | `LTX-030`（前缀不受影响） |
+| `ABP-030-BasicVSR++.mp4` | `ABP-030` |
+| `ABP-030__restored.mp4` | `ABP-030` |
+| `ABP-030-restored.mp4` | `ABP-030` |
+| `ABP-030_LTX__restored.mp4` | `ABP-030` |
+| `LTX-030` / `RESTORED-030` | 原样保留（前缀不受影响） |
 
 ## FC2 番号刮不到（2026-11 起）
 

@@ -10,8 +10,10 @@ import (
 // are not a part of the movie number. For instance, Jasna appends "-LTX"
 // when the LTX restoration model is used (e.g. "ABP-030-LTX"), and such
 // numbers must be trimmed to "ABP-030" before searching, otherwise they
-// cannot be matched by any provider.
-const restoreTags = `ltx|basicvsr(?:\+\+)?`
+// cannot be matched by any provider. "restored" is another spelling used
+// by the same tools (often as "__restored"); without trimming it the
+// trailing "d" would be eaten by the A/B/C/D segment rule instead.
+const restoreTags = `ltx|restored|basicvsr(?:\+\+)?`
 
 func Trim(s string) string {
 	const maxExtLength = 7

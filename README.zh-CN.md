@@ -7,7 +7,7 @@
 
 > **这是 [metatube-community/metatube-sdk-go](https://github.com/metatube-community/metatube-sdk-go) 的个人分支（fork，版本号 `v1.4.0-ltx.N`）**，维护于
 > [sayaxia/metatube-sdk-go](https://github.com/sayaxia/metatube-sdk-go)。
-> 相对上游只增加一项能力：识别带 AI 修复后缀的文件名（如 `ABP-030-LTX.mp4`）。
+> 相对上游只增加一项能力：识别带 AI 修复后缀的文件名（如 `ABP-030-LTX.mp4`、`ABP-030__restored.mp4`）。
 > 其余功能与上游完全一致，**上游始终是唯一事实来源**。
 > 完整差异、版本规则与 Docker 说明见 [FORK.md](FORK.md)。
 
@@ -36,10 +36,16 @@ Jasna 等去马赛克工具在使用 **LTX** 模型修复后，会把模型名�
 修复后：ABP-030-LTX.mp4
 ```
 
-MetaTube 在检索前会对文件名做番号归一化，但原逻辑只剥离 `-C`、`-UC`、`-ch`、`-cdN`、`-A`~`-D`、`-hhbN`
-等已知后缀，`-LTX` 被当成番号的一部分，于是所有 provider 都在搜 `ABP-030-LTX` → 返回空结果 → 自动刮削失败。
+除了 `-LTX`，同类工具还会写 `_LTX`、`-BasicVSR++`、`-restored` / `__restored`。
+这些后缀**都是无码破解**的标记：Plex 插件侧统一判为 `u.png` 角标（带中文字幕则 `uc.png`）
+并写同一个「无码破解」类型标签，本质上是同一个版别，只是拼写不同。
 
-本分支在归一化阶段把这类"修复模型后缀"一并剥离，`ABP-030-LTX` 会被正确识别为 `ABP-030`。
+MetaTube 在检索前会对文件名做番号归一化，但原逻辑只剥离 `-C`、`-UC`、`-ch`、`-cdN`、`-A`~`-D`、`-hhbN`
+等已知后缀，`-LTX` 被当成番号的一部分，于是所有 provider 都在搜 `ABP-030-LTX` → 返回空结果 → 自动刮削失败；
+`-restored` 还会被末尾的 `A|B|C|D` 规则吃掉一个 `d`，变成 `ABP-030-restore`。
+
+本分支在归一化阶段把 `ltx|restored|basicvsr(?:\+\+)?` 一并剥离，`ABP-030-LTX`
+和 `ABP-030__restored` 都会被正确识别为 `ABP-030`。
 该修复已作为 PR 提交上游：[#388](https://github.com/metatube-community/metatube-sdk-go/pull/388)；
 上游合并后即可直接用官方镜像，无需继续使用本分支。
 
@@ -146,6 +152,9 @@ sha256sum -c metatube-server-1.4.0-ltx.1-linux-amd64.tar.gz.sha256
 
 修复后的 `number.Trim` 行为：
 
+`number.Trim` 识别的后缀词表为 `ltx|restored|basicvsr(?:\+\+)?`，大小写不敏感，
+分隔符 `-` / `_` / 空格及其连续重复都支持；只剥尾部，番号前缀里的同名字符串不受影响。
+
 | 原始文件名 | 归一化结果 |
 | --- | --- |
 | `ABP-030-LTX.mp4` | `ABP-030` |
@@ -153,7 +162,11 @@ sha256sum -c metatube-server-1.4.0-ltx.1-linux-amd64.tar.gz.sha256
 | `ABP-030-LTX-C.mp4` | `ABP-030` |
 | `hhd800.com@SSIS-329-LTX-4K.mp4` | `SSIS-329` |
 | `FC2-PPV-123456-LTX.mp4` | `FC2-123456` |
-| `LTX-030.mp4` | `LTX-030`（前缀不受影响） |
+| `ABP-030-BasicVSR++.mp4` | `ABP-030` |
+| `ABP-030__restored.mp4` | `ABP-030` |
+| `ABP-030-restored.mp4` | `ABP-030` |
+| `ABP-030_LTX__restored.mp4` | `ABP-030` |
+| `LTX-030.mp4` / `RESTORED-030.mp4` | 原样保留（前缀不受影响） |
 
 验证方式：
 
