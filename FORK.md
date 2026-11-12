@@ -160,8 +160,14 @@ DSM 6 的 Docker 套件停留在 **18.09.8 + docker-compose 1.24**，有四个�
 1. 在百度翻译开放平台**开通「大模型文本翻译API」服务**（需要个人/企业认证）；
 2. Plex 插件里把翻译引擎从 `baidu` 改成 `baiduai`，参数表**原样保留**
    （`baidu-app-id=...` / `baidu-app-key=...` 与旧引擎共用，不用改）；
-3. 可选 `baidu-model-type=llm` 走大模型模式；默认 `nmt`（机器翻译模式，
-   个人认证每月 100 万免费字符）。
+3. 模型二选一，两种方式都行：
+   - **Plex 设置里的开关** `BaiduAI: use LLM translation`（默认关闭）：
+     关 = `nmt` 机器翻译（个人认证 100 万字符/月），开 = `llm` 大模型翻译
+     （官方定价页写作「100 万字符测试额度（认证后自动发放）」，未标 /月）；
+   - **参数表强制指定** `baidu-model-type=llm|nmt` 追加到 `translation_engine_parameters`，
+     优先级高于开关（适合脚本化/临时切换）。
+
+   插件侧只需这两项，后端 `baiduai` 引擎本身已支持该参数，不必改后端。
 
 验证（NAS 上直接调）：
 
