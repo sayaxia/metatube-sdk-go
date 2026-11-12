@@ -10,9 +10,15 @@
 // sign-based authentication (MD5(appid+q+salt+key)) and the same
 // JSON response schema (trans_result[].dst) as the classic API.
 //
-// model_type is set to "nmt" (machine translation) by default, which
-// grants personal-certified accounts 1M free characters per month;
-// the "llm" mode only carries a one-time 1M-character test quota.
+// model_type is set to "nmt" (machine translation) by default: personal
+// certified accounts get 1M free characters per month for it. The "llm"
+// mode is metered against a separate pool: the pricing page calls it a
+// "1M-character test quota granted automatically after certification"
+// (https://api.fanyi.baidu.com/doc/31) without stating a period, so the
+// console is the source of truth - it shows one "free quota" figure per
+// model, and the platform-wide rule is that free quota refreshes on the
+// 1st of each month (https://api.fanyi.baidu.com/doc/49). Both modes
+// cost 49 CNY per million characters once the free pool is exhausted.
 package baiduai
 
 import (
