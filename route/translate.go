@@ -8,6 +8,7 @@ import (
 
 	"github.com/metatube-community/metatube-sdk-go/translate"
 	_ "github.com/metatube-community/metatube-sdk-go/translate/baidu"
+	_ "github.com/metatube-community/metatube-sdk-go/translate/baiduai"
 	_ "github.com/metatube-community/metatube-sdk-go/translate/deepl"
 	_ "github.com/metatube-community/metatube-sdk-go/translate/google"
 	_ "github.com/metatube-community/metatube-sdk-go/translate/googlefree"

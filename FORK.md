@@ -19,6 +19,7 @@
 | `.github/workflows/docker.yml` | 推送到本仓库 GHCR 命名空间（上游固定为 `metatube-community`，fork 无权限） | ❌ 仅本分支 |
 | `.github/workflows/release.yml` | tag 触发构建 `docker load` 可用的镜像包并发布到 Releases | ❌ 仅本分支 |
 | `docker-compose.yaml` | 默认使用本分支镜像与本地 SQLite | ❌ 仅本分支 |
+| `translate/baiduai` translator | 新增百度**大模型文本翻译**（AIT）引擎：端点 `fanyi-api.baidu.com/ait/api/aiTextTranslate`，与旧 `baidu` 引擎共用同一 APPID/密钥的 sign 鉴权与返回格式，参数键名一致（`baidu-app-id` / `baidu-app-key`，可选 `baidu-model-type=nmt|llm`，默认 `nmt`）。它是有独立免费额度的商品，通用翻译额度耗尽时可切换 | ❌ 仅本分支 |
 
 ## 问题背景
 
@@ -150,6 +151,23 @@ DSM 6 的 Docker 套件停留在 **18.09.8 + docker-compose 1.24**，有四个�
 | Docker 18.09 不认 OCI index，pull 会报 `no matching manifest` / `unsupported media type` | 自 `v1.4.0-ltx.4` 起镜像以 Docker manifest list 发布（`oci-mediatypes=false`），18.09 可正常 pull |
 | GUI 只能导入未压缩 `.tar`，且注册表搜不到 ghcr.io | 离线包先 `gunzip -c x.tar.gz > x.tar` 再导入，或 SSH 里 `docker load -i x.tar.gz` |
 
+
+## 百度大模型翻译引擎（`baiduai`）
+
+通用文本翻译（旧 `baidu` 引擎）的免费额度用尽时，可切换到
+[大模型文本翻译 API](https://api.fanyi.baidu.com/doc/21)（独立商品、独立额度）：
+
+1. 在百度翻译开放平台**开通「大模型文本翻译API」服务**（需要个人/企业认证）；
+2. Plex 插件里把翻译引擎从 `baidu` 改成 `baiduai`，参数表**原样保留**
+   （`baidu-app-id=...` / `baidu-app-key=...` 与旧引擎共用，不用改）；
+3. 可选 `baidu-model-type=llm` 走大模型模式；默认 `nmt`（机器翻译模式，
+   个人认证每月 100 万免费字符）。
+
+验证（NAS 上直接调）：
+
+```bash
+curl "http://127.0.0.1:8080/v1/translate?q=%E6%B5%8B%E8%AF%95&to=zh&engine=baiduai&baidu-app-id=APPID&baidu-app-key=KEY"
+```
 
 ## 与上游同步
 
