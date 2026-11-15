@@ -21,6 +21,13 @@ func (e *Engine) initLogger() {
 }
 
 func (e *Engine) initFetcher() {
+	// Resolve the proxy once so the log reflects the setting actually used.
+	fetch.Proxy()
+	if proxy := fetch.ProxyURL(); proxy != "" {
+		e.logger.Printf("Outbound proxy enabled: %s", proxy)
+	} else {
+		e.logger.Printf("Outbound proxy: direct")
+	}
 	e.fetcher = fetch.Default(&fetch.Config{Timeout: e.timeout})
 }
 

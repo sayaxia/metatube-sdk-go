@@ -180,6 +180,37 @@ DSM 6 的 Docker 套件停留在 **18.09.8 + docker-compose 1.24**，有四个�
 curl "http://127.0.0.1:8080/v1/translate?q=%E6%B5%8B%E8%AF%95&to=zh&engine=baiduai&baidu-app-id=APPID&baidu-app-key=KEY"
 ```
 
+## 出站代理（`MT_PROXY_URL` / `MT_SYSTEM_PROXY`）
+
+`common/fetch` 用的是 hashicorp `cleanhttp`，它**故意清空** `Transport.Proxy`，所以
+`HTTP_PROXY` / `HTTPS_PROXY` 环境变量对它无效，以前只能逐个 provider 注入
+`MT_<TYPE>_PROVIDER_<NAME>__PROXY=...`（34 个源就要写 34 行）。现在多了两个全局开关：
+
+| 变量 | 作用 |
+|---|---|
+| `MT_PROXY_URL` | 一个代理覆盖所有 provider，例如 `http://127.0.0.1:7897` |
+| `MT_SYSTEM_PROXY=1` | 读操作系统代理：Windows 读「Internet 选项」里的 `ProxyEnable` / `ProxyServer`（即 设置 → 网络和 Internet → 代理），其他平台读 `https_proxy` / `http_proxy` / `all_proxy` |
+
+优先级：`MT_<TYPE>_PROVIDER_<NAME>__PROXY` > `MT_PROXY_URL` > 系统代理 > 直连。
+两个开关都要显式开启，**默认仍是直连**，Docker 镜像行为与之前一致。
+
+Windows 上启动时会把实际生效的代理打进日志，便于核对：
+
+```text
+[ENGINE] 2026/11/15 19:46:11 .../engine/init.go:27: Outbound proxy enabled: http://127.0.0.1:7897
+[ENGINE] ... Outbound proxy: direct        # 系统代理关闭或未开启开关时
+```
+
+Windows 的「系统代理」存在注册表 `HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings`，
+Go 标准库不会自动读取，本 fork 显式读；那里若为 `ProxyEnable=0`，等价于直连。
+
+交叉编译 Windows 单文件（纯 Go，无需 CGO / mingw）：
+
+```bash
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -tags experimental \
+  -o metatube-server.exe ./cmd/server
+```
+
 ## 与上游同步
 
 ```bash
