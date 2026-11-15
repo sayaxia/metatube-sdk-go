@@ -1,6 +1,6 @@
 # MetaTube SDK Go
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/metatube-community/metatube-sdk-go/docker.yml?branch=main&style=flat-square&logo=github-actions)](https://github.com/metatube-community/metatube-sdk-go/actions/workflows/release.yml)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/sayaxia/metatube-sdk-go/release.yml?branch=main&style=flat-square&logo=github-actions&label=release)](https://github.com/sayaxia/metatube-sdk-go/actions/workflows/release.yml)
 [![Go Linter](https://img.shields.io/github/actions/workflow/status/metatube-community/metatube-sdk-go/linter.yml?style=flat-square&branch=main&logo=githubactions&label=golangci-lint)](https://github.com/metatube-community/metatube-sdk-go/actions/workflows/linter.yml)
 [![Require Go Version](https://img.shields.io/badge/go-%3E%3D1.25-30dff3?style=flat-square&logo=go)](https://github.com/metatube-community/metatube-sdk-go/blob/main/go.mod)
 [![GitHub License](https://img.shields.io/github/license/metatube-community/metatube-sdk-go?color=e4682a&logo=apache&style=flat-square)](https://github.com/metatube-community/metatube-sdk-go/blob/main/LICENSE)
@@ -20,9 +20,27 @@ Metadata Tube SDK in Golang.
 > See [FORK.md](FORK.md) for the full delta, versioning scheme and Docker instructions.
 > Upstream remains the source of truth for everything else.
 
+## Fork highlights (since v1.4.0-ltx.8)
+
+- **Built-in console at `/ui`** — recent searches grouped by title with friendly detail
+  popups, per-request logs with secrets redacted, one-click clear, and an auto-translate
+  toggle. Headless-friendly: open it in a browser against any server instance.
+- **Windows desktop panel (`metatube-panel.exe`)** — a WebView2 window with a system tray
+  icon that starts, stops and restarts the bundled service; closing or minimizing goes to
+  the tray, and "Quit" shuts down both. The official logo is embedded as the app icon.
+- **Outbound proxy** — follows the OS proxy by default (registry on Windows, env vars on
+  Linux/Docker), overridable with `MT_PROXY_URL`; also fixes colly-based providers that
+  previously bypassed the proxy.
+- **Translation** — adds the Baidu LLM engine `baiduai`; credentials live next to the
+  executable in `translate.json` or in `MT_TRANSLATE_JSON` (no Docker volume needed),
+  hot-reloaded on change. A batch endpoint and UI toggle translate titles/cast/release date.
+- **Downloads** — every tagged release ships Linux amd64/arm64 Docker images plus the two
+  Windows executables. See [FORK.md](FORK.md) for details.
+
 ## Contents
 
 - [MetaTube SDK Go](#metatube-sdk-go)
+    - [Fork highlights](#fork-highlights-since-v140-ltx8)
     - [Contents](#contents)
     - [Features](#features)
     - [Installation](#installation)

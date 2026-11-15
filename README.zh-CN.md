@@ -7,8 +7,9 @@
 
 > **这是 [metatube-community/metatube-sdk-go](https://github.com/metatube-community/metatube-sdk-go) 的个人分支（fork，版本号 `v1.4.0-ltx.N`）**，维护于
 > [sayaxia/metatube-sdk-go](https://github.com/sayaxia/metatube-sdk-go)。
-> 相对上游只增加一项能力：识别带 AI 修复后缀的文件名（如 `ABP-030-LTX.mp4`、`ABP-030__restored.mp4`）。
-> 其余功能与上游完全一致，**上游始终是唯一事实来源**。
+> 相对上游增加：识别带 AI 修复后缀的文件名（如 `ABP-030-LTX.mp4`、`ABP-030__restored.mp4`），
+> 内置 Web 控制台、Windows 桌面面板、出站代理跟随、翻译引擎与凭据热重载等（详见下文）。
+> 其余功能与上游一致，**上游始终是唯一事实来源**。
 > 完整差异、版本规则与 Docker 说明见 [FORK.md](FORK.md)。
 
 English version: [README.md](README.md)
@@ -16,16 +17,33 @@ English version: [README.md](README.md)
 ## 目录
 
 - [这个分支解决什么问题](#这个分支解决什么问题)
+- [分支新增功能（v1.4.0-ltx.8 起）](#分支新增功能v140-ltx8-起)
 - [特性](#特性)
 - [安装](#安装)
     - [作为 Go SDK 使用](#作为-go-sdk-使用)
     - [Docker 部署（推荐）](#docker-部署推荐)
     - [离线安装](#离线安装)
+    - [Windows 桌面版](#windows-桌面版)
 - [番号后缀归一化](#番号后缀归一化)
 - [构建](#构建)
 - [与上游同步](#与上游同步)
 - [致谢](#致谢)
 - [许可](#许可)
+
+## 分支新增功能（v1.4.0-ltx.8 起）
+
+- **内置控制台 `/ui`**：总览按番号聚合显示最近搜索（一行一个番号），点开有友好的详情弹窗；
+  请求日志可读、查询串中的密钥自动打码、支持一键清空；提供自动翻译开关，
+  浏览器打开任意实例的 `/ui` 即可使用。
+- **Windows 桌面面板 `metatube-panel.exe`**：WebView2 窗口 + 系统托盘，自动启动/停止/重启
+  服务；关闭窗口与最小化都进托盘，右键退出会一并关闭服务。窗口与托盘用官方 logo 图标，
+  并声明 DPI 感知保证字体清晰。可与 `metatube-server.exe` 放同目录独立运行。
+- **出站代理**：默认跟随系统代理（Windows 读注册表、Linux/Docker 读环境变量），
+  可用 `MT_PROXY_URL` 覆盖；同时修复 colly 系 provider 绕过代理导致抓空的问题。
+- **翻译**：新增百度大模型引擎 `baiduai`；凭据放在可执行文件同目录的 `translate.json`
+  或 `MT_TRANSLATE_JSON` 环境变量（容器无需挂 volume），改动热重载；
+  提供批量翻译接口与自动翻译开关（标题/演员/发售日期）。
+- **发版资产**：每个 tag 同时提供 Linux amd64/arm64 镜像与两个 Windows exe，详见 [FORK.md](FORK.md)。
 
 ## 这个分支解决什么问题
 
@@ -136,20 +154,31 @@ docker compose pull && docker compose up -d
 Releases 页面提供 `docker load` 可用的镜像包，适用于无法访问 GHCR 的内网环境：
 
 ```bash
-# amd64
-gunzip -c metatube-server-1.4.0-ltx.1-linux-amd64.tar.gz | docker load
+# amd64（<VER> 换成实际版本号，如 1.4.0-ltx.9）
+gunzip -c metatube-server-<VER>-linux-amd64.tar.gz | docker load
 # arm64
-gunzip -c metatube-server-1.4.0-ltx.1-linux-arm64.tar.gz | docker load
+gunzip -c metatube-server-<VER>-linux-arm64.tar.gz | docker load
 
-docker images | grep metatube-server   # metatube-server:1.4.0-ltx.1
+docker images | grep metatube-server   # metatube-server:<VER>
 ```
 
-加载出的镜像名称为 `metatube-server:1.4.0-ltx.1`，把 compose 里的 `image` 换成它即可。
+加载出的镜像名称为 `metatube-server:<VER>`，把 compose 里的 `image` 换成它即可。
 每个镜像包都附带 `.sha256` 文件，下载后可校验：
 
 ```bash
-sha256sum -c metatube-server-1.4.0-ltx.1-linux-amd64.tar.gz.sha256
+sha256sum -c metatube-server-<VER>-linux-amd64.tar.gz.sha256
 ```
+
+### Windows 桌面版
+
+不想装 Docker 时，从 Release 下载 `metatube-server.exe` 和 `metatube-panel.exe`，放同一目录：
+
+- 双击 `metatube-panel.exe` 启动图形面板：自动托管服务，可开关/重启；关闭窗口与最小化进托盘，
+  右键退出会一并关服务。需要系统已装 Edge WebView2 运行时（Win10/11 一般自带）。
+- `metatube-server.exe` 是无界面服务本体，也可单独命令行运行。
+
+首次启动在面板设置里填后端地址与 access token 即可连接；翻译凭据写同目录 `translate.json`
+或用 `MT_TRANSLATE_JSON` 环境变量。浏览器打开 `http://127.0.0.1:8080/ui` 访问内置控制台。
 
 ## 番号后缀归一化
 

@@ -1,4 +1,4 @@
-name: Release Docker Package (LTX Fork)
+name: Release Package (LTX Fork)
 
 concurrency:
   group: release-${{ github.event_name }}-${{ github.ref }}
@@ -26,6 +26,7 @@ jobs:
     outputs:
       tag: ${{ steps.vars.outputs.tag }}
       version: ${{ steps.vars.outputs.version }}
+      commit: ${{ steps.vars.outputs.commit }}
     steps:
       - name: Check out code
         uses: actions/checkout@v7
@@ -40,6 +41,7 @@ jobs:
           if [ -z "${TAG}" ]; then TAG="${GITHUB_REF_NAME}"; fi
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
   image:
     name: Image (${{ matrix.arch }})
@@ -77,7 +79,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           build-args: |
             VERSION=${{ needs.prepare.outputs.version }}
-            COMMIT=${{ github.sha }}
+            COMMIT=${{ needs.prepare.outputs.commit }}
             BUILD_TAGS=experimental
           tags: metatube-server:${{ needs.prepare.outputs.version }}
           cache-from: type=gha
@@ -99,9 +101,50 @@ jobs:
             metatube-server-*.tar.gz.sha256
           if-no-files-found: error
 
+  windows:
+    name: Windows binaries
+    needs: prepare
+    runs-on: windows-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          check-latest: true
+          go-version-file: 'go.mod'
+
+      - name: Build Windows binaries
+        shell: bash
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          COMMIT: ${{ needs.prepare.outputs.commit }}
+        run: |
+          set -euo pipefail
+          module="github.com/metatube-community/metatube-sdk-go"
+          base="-s -w -buildid= -X $module/internal/version.Version=$VERSION -X $module/internal/version.GitCommit=$COMMIT"
+          mkdir -p dist
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -tags experimental -trimpath \
+            -ldflags "$base" -o dist/metatube-server.exe ./cmd/server
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -tags experimental -trimpath \
+            -ldflags "$base -H windowsgui" -o dist/metatube-panel.exe ./cmd/panel
+          ./dist/metatube-server.exe -version
+          ls -lh dist
+
+      - name: Upload Windows binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-binaries
+          path: dist/metatube-*.exe
+          if-no-files-found: error
+
   release:
     name: Publish Release
-    needs: [prepare, image]
+    needs: [prepare, image, windows]
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
@@ -117,6 +160,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: image-arm64
+          path: dist
+
+      - name: Download Windows binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-binaries
           path: dist
 
       - name: Generate compose file and instructions
@@ -194,6 +243,18 @@ jobs:
           > 若 GHCR 包为私有，请先执行 \`docker login ghcr.io\`，或在 GitHub 的
           > Package settings 中把该包改为 Public。
 
+          ## 方式四：Windows 桌面版（无需 Docker）
+
+          下载 \`metatube-server.exe\` 与 \`metatube-panel.exe\`，放在**同一目录**：
+          - \`metatube-panel.exe\`：图形面板，双击启动，自动托管服务、可开关/重启，
+            关闭窗口与最小化都进系统托盘（右键退出会一并关闭服务）。需要系统已装
+            Edge WebView2 运行时（Win10/11 一般自带）。
+          - \`metatube-server.exe\`：无界面的服务本体，也可单独命令行运行。
+
+          首次启动后在面板设置里填后端地址与 access token 即可连接；
+          翻译引擎凭据写入同目录 \`translate.json\`，或通过 \`MT_TRANSLATE_JSON\` 环境变量提供。
+          浏览器打开 \`http://127.0.0.1:8080/ui\` 可访问内置控制台。
+
           ## DSM 6 / 群晖注意事项
 
           1. DSM 6 的 Docker 套件只带 **docker-compose v1**，没有 \`docker compose\` 子命令，命令必须用 \`docker-compose\`。
@@ -220,24 +281,27 @@ jobs:
           基于上游 [metatube-community/metatube-sdk-go](https://github.com/metatube-community/metatube-sdk-go) v1.4.0 的个人构建版本。
 
           ### 本版改动
-          - 番号归一化：在检索前剥离 AI 修复 / 去水印工具追加的尾部标记 \`ltx\`、\`restored\`、
-          \`basicvsr\` / \`basicvsr++\`、\`wm\`，以及原有的 \`-C\` / \`-UC\` / \`-ch\` / \`-cdN\` / \`-A~D\` / \`-hhbN\`。
-          分隔符 \`-\`、\`_\`、\`.\`、空格及其连续重复都支持，多个标记叠加时从尾部循环剥离、顺序无关；
-          只处理尾部，番号前缀里的同名字符串原样保留。业务上 \`-U\` / \`-LTX\` / \`_LTX\` / \`__restored\`
-          / \`-BasicVSR++\` 都表示无码破解，插件侧统一用 \`u.png\` 角标和「无码破解」类型标签。
-          - 本轮修复两类漏判：\`-restored\` 会被末尾的 \`A|B|C|D\` 规则吃掉尾部 \`d\` 变成 \`-restore\`；
-          \`_wm\` / \`.LTX_wm\` 等工具标记叠在角标后面时旧逻辑剥不干净。
-          现在 \`ABP-030-LTX\`、\`ABP-030__restored\`、\`JUR-110_restored_wm\`、
-          \`SONE-521_restored.LTX_wm\` 都会归一化为裸番号后再检索。
-          - 镜像改为以 \`-tags experimental\` 构建，编入实验池 provider（\`AVBASE\` / \`ThePornDB\` / \`AV-LEAGUE\`）。
-          引用 \`AVBASE\` 的旧条目此前刷新会报 \`404 provider not found\`（刷新瞬间结束、元数据不变），本版已恢复。
-          \`/v1/providers\` 应为 movie 34 / actor 3；\`MadouQu\` 因 \`Priority = 0\` 仍停用，属预期。
+          - **内置控制台 \`/ui\`**：总览显示最近搜索（同番号聚合成一行）、成功与否、来源与结果；
+            点开有友好的详情弹窗；请求日志可按番号阅读、查询串里的密钥自动打码；支持一键清空。
+          - **Windows 桌面面板 \`metatube-panel.exe\`**：WebView2 窗口 + 系统托盘，自动启动/停止/重启
+            服务，关闭窗口与最小化都进托盘，右键退出会一并关服务；窗口与托盘使用官方 logo 图标，
+            并设置进程 DPI 感知保证字体清晰。可与 \`metatube-server.exe\` 放同目录独立运行。
+          - **出站代理**：默认跟随系统代理设置（Windows 读注册表、Linux/Docker 读环境变量），
+            可用 \`MT_PROXY_URL\` 覆盖；同时修复 colly 系 provider 绕过代理导致抓空的问题。
+          - **翻译**：新增百度大模型引擎 \`baiduai\`；翻译引擎凭据改由可执行文件同目录
+            \`translate.json\` 或 \`MT_TRANSLATE_JSON\` 环境变量提供（容器无需挂 volume），
+            支持热重载；控制台提供自动翻译开关与批量翻译接口 \`/v1/translate/batch\`。
+          - **番号归一化**：检索前循环剥离 AI 修复 / 去水印工具尾部标记 \`ltx\`、\`restored\`、
+            \`basicvsr++\`、\`wm\` 及原有后缀，叠加顺序无关，归一化为裸番号后再查。
+          - 镜像以 \`-tags experimental\` 构建，编入实验池 provider；启用上述控制台新接口。
 
           ### 资产说明
           | 文件 | 说明 |
           | --- | --- |
           | \`metatube-server-${VERSION}-linux-amd64.tar.gz\` | amd64 \`docker load\` 镜像包 |
           | \`metatube-server-${VERSION}-linux-arm64.tar.gz\` | arm64 \`docker load\` 镜像包 |
+          | \`metatube-server.exe\` | Windows 服务端本体 |
+          | \`metatube-panel.exe\` | Windows 桌面面板（含服务托管） |
           | \`docker-compose.yml\` | 开箱即用的 compose 文件 |
           | \`INSTALL.md\` | 安装与验证步骤 |
           | \`*.sha256\` | 校验文件 |
@@ -258,6 +322,8 @@ jobs:
           files: |
             dist/metatube-server-*.tar.gz
             dist/metatube-server-*.tar.gz.sha256
+            dist/metatube-server.exe
+            dist/metatube-panel.exe
             dist/docker-compose.yml
             dist/INSTALL.md
           fail_on_unmatched_files: false
