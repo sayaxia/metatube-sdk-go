@@ -22,9 +22,6 @@ const (
 	// console groups by number, so an aggregate search over every provider has
 	// to fit: 4 MiB covers ~30 providers with full metadata and stays cheap.
 	requestLogSearchCap = 4 << 20
-	// requestLogBodyCap bounds a small JSON reply (detail/info) buffered only to
-	// pull out the number and title.
-	requestLogBodyCap = 8 << 10
 	// requestLogErrorCap bounds how much of an error reply is buffered, which is
 	// only used to pull out the message.
 	requestLogErrorCap = 2 << 10
@@ -215,7 +212,7 @@ func (w *logWriter) statusCode() int {
 	if w.status != 0 {
 		return w.status
 	}
-	if s := w.ResponseWriter.Status(); s != 0 {
+	if s := w.Status(); s != 0 {
 		return s
 	}
 	return http.StatusOK
