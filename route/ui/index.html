@@ -1,0 +1,2371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MetaTube Console</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234d8dff'/%3E%3Cpath d='M9 23V9l7 8 7-8v14' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{
+  --bg:#0b0e13;--bg-elev:#11161e;--bg-elev2:#161c26;--bg-hover:#1b2330;
+  --border:#232b38;--border-soft:#1a2029;
+  --text:#e2e7ef;--dim:#8d97a8;--faint:#5d677a;
+  --accent:#4d8dff;--accent-soft:rgba(77,141,255,.12);
+  --ok:#3fb950;--ok-soft:rgba(63,185,80,.12);
+  --warn:#d29922;--warn-soft:rgba(210,153,34,.12);
+  --err:#f85149;--err-soft:rgba(248,81,73,.12);
+  --mono:ui-monospace,SFMono-Regular,"Cascadia Mono",Consolas,"Liberation Mono",monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  --radius:10px;
+}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
+  font-size:13.5px;line-height:1.5;height:100vh;overflow:hidden;
+  display:grid;grid-template-columns:212px 1fr;grid-template-rows:54px 1fr;
+  /* Windows 上灰度抗锯齿会把字压细；交给系统用 ClearType 才锐利 */
+  -webkit-font-smoothing:auto;
+}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#28313f;border-radius:5px;border:2px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:#354152}
+.mono{font-family:var(--mono)}
+
+/* ---------- top bar ---------- */
+header{
+  grid-column:1/-1;display:flex;align-items:center;gap:16px;padding:0 16px;
+  background:var(--bg-elev);border-bottom:1px solid var(--border);
+}
+.brand{display:flex;align-items:center;gap:9px;min-width:196px}
+.logo{
+  width:20px;height:20px;border-radius:6px;flex:none;
+  background:linear-gradient(135deg,#4d8dff,#8b5cf6);
+  position:relative;
+}
+.logo::after{
+  content:"";position:absolute;inset:5px;border-radius:2px;
+  border:2px solid rgba(255,255,255,.92);border-right-color:transparent;border-bottom-color:transparent;
+  transform:rotate(45deg);
+}
+.brand b{font-size:14px;font-weight:650;letter-spacing:.2px}
+.brand em{font-style:normal;color:var(--faint);font-weight:400;margin-left:2px}
+.head-right{display:flex;align-items:center;gap:10px;margin-left:auto;min-width:0}
+.conn-pill{
+  display:flex;align-items:center;gap:9px;padding:5px 12px;border-radius:999px;
+  background:var(--bg-elev2);border:1px solid var(--border);font-size:12.5px;
+  min-width:0;max-width:460px;
+}
+.conn-pill .mono{color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conn-sep{width:1px;height:12px;background:var(--border);flex:none}
+.conn-sep[hidden]{display:none}
+.iconbtn{
+  width:31px;height:31px;flex:none;display:grid;place-items:center;cursor:pointer;
+  background:var(--bg-elev2);border:1px solid var(--border);border-radius:8px;color:var(--dim);
+  transition:background .15s,color .15s,border-color .15s;
+}
+.iconbtn:hover{background:var(--bg-hover);color:var(--text);border-color:#2f3a4b}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:none;transition:background .2s}
+.dot.on{background:var(--ok);box-shadow:0 0 0 3px var(--ok-soft)}
+.dot.off{background:var(--err);box-shadow:0 0 0 3px var(--err-soft)}
+.dot.busy{background:var(--warn);animation:pulse 1s infinite}
+.dot.warn{background:var(--warn);box-shadow:0 0 0 3px var(--warn-soft)}
+@keyframes pulse{50%{opacity:.35}}
+input,select,textarea,button{font-family:inherit;font-size:13px;color:var(--text)}
+.inp{
+  background:var(--bg);border:1px solid var(--border);border-radius:7px;
+  padding:6px 9px;outline:none;transition:border-color .15s,box-shadow .15s;
+}
+.inp:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.inp::placeholder{color:var(--faint)}
+.btn{
+  background:var(--bg-elev2);border:1px solid var(--border);border-radius:7px;
+  padding:6px 13px;cursor:pointer;transition:background .15s,border-color .15s;white-space:nowrap;
+}
+.btn:hover{background:var(--bg-hover);border-color:#2f3a4b}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:550}
+.btn.primary:hover{background:#5f9bff}
+.btn.ghost{background:transparent}
+.btn:disabled{opacity:.5;cursor:default;transform:none}
+
+/* ---------- sidebar ---------- */
+aside{
+  background:var(--bg-elev);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;padding:10px 8px;overflow:auto;
+}
+nav{display:flex;flex-direction:column;gap:2px}
+.nav-item{
+  display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  background:transparent;border:0;border-radius:7px;padding:8px 10px;cursor:pointer;
+  color:var(--dim);transition:background .15s,color .15s;
+}
+.nav-item:hover{background:var(--bg-hover);color:var(--text)}
+.nav-item.active{background:var(--accent-soft);color:#cfe0ff}
+.nav-item.active .ni{background:var(--accent)}
+.ni{width:3px;height:14px;border-radius:2px;background:#2c3542;flex:none}
+.sidebar-foot{padding:10px 10px 4px;color:var(--faint);font-size:11.5px;line-height:1.5;border-top:1px solid var(--border-soft)}
+.aside-bottom{margin-top:auto}
+.svc-box{display:flex;flex-direction:column;gap:8px;padding:11px 9px 10px;border-top:1px solid var(--border-soft)}
+.svc-box[hidden]{display:none}
+.svc-title{color:var(--faint);font-size:10.5px;text-transform:uppercase;letter-spacing:.09em}
+.svc-state{display:flex;align-items:center;gap:7px;font-size:12.5px;min-width:0}
+.svc-state b{font-weight:600;white-space:nowrap}
+.svc-pid{color:var(--faint);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.svc-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.svc-actions .mini{text-align:center}
+.svc-actions .mini:disabled{opacity:.4;cursor:default}
+.svc-exit{
+  margin-top:2px;padding:6px 8px;border-radius:7px;cursor:pointer;font-size:12px;
+  background:transparent;border:1px solid rgba(248,81,73,.3);color:#ff9a94;transition:background .15s;
+}
+.svc-exit:hover{background:var(--err-soft)}
+
+/* ---------- main ---------- */
+main{overflow:auto;padding:20px 24px 48px}
+.view{display:none;max-width:1320px;margin:0 auto}
+.view.active{display:block}
+.view-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px}
+h1{font-size:17px;font-weight:600;margin:0;letter-spacing:.2px}
+h1 span{color:var(--faint);font-weight:400;font-size:12.5px;margin-left:8px}
+
+/* ---------- cards ---------- */
+.card{
+  background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius);
+  padding:14px 16px;
+}
+.k{color:var(--dim);font-size:11.5px;letter-spacing:.3px;text-transform:uppercase;margin-bottom:6px}
+.v{font-size:15px;font-weight:550;word-break:break-all}
+.v.small{font-size:13px;font-weight:400}
+.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+.grid.two{grid-template-columns:repeat(2,1fr);gap:12px}
+@media (max-width:1180px){.grid{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:700px){.grid{grid-template-columns:repeat(2,1fr)}}
+
+.proxy{
+  border-radius:var(--radius);border:1px solid var(--border);padding:18px 20px;margin-bottom:14px;
+  background:var(--bg-elev);position:relative;overflow:hidden;
+}
+.proxy::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--faint)}
+.proxy.on::before{background:var(--ok)}
+.proxy.off::before{background:var(--warn)}
+.proxy .plabel{color:var(--dim);font-size:11.5px;letter-spacing:.4px;text-transform:uppercase}
+.proxy .pvalue{font-family:var(--mono);font-size:16px;margin:8px 0 6px;word-break:break-all}
+.proxy.on .pvalue{color:#7ee787}
+.proxy.off .pvalue{color:#e3b341}
+.proxy .pmeta{color:var(--faint);font-size:12px}
+
+/* ---------- toolbar ---------- */
+.toolbar{
+  display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius);
+  padding:12px;margin-bottom:14px;
+}
+.toolbar .grow{flex:1;min-width:220px}
+.toolbar input[type=text],.toolbar input:not([type]){min-width:0}
+#q{flex:1;min-width:220px}
+.seg{display:flex;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:2px;gap:2px}
+.seg button{
+  background:transparent;border:0;border-radius:5px;padding:5px 11px;cursor:pointer;color:var(--dim);
+}
+.seg button.on{background:#233247;color:#cfe0ff;box-shadow:0 0 0 1px #2f4a72}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{color:var(--dim);font-size:11.5px}
+select.inp{cursor:pointer}
+
+/* ---------- summary ---------- */
+.summary{
+  display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;
+}
+.chip{
+  display:inline-flex;align-items:center;gap:7px;background:var(--bg-elev);
+  border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:12.5px;
+}
+.chip b{font-family:var(--mono);font-weight:600}
+.chip.ok b{color:var(--ok)}
+.chip.err b{color:var(--err)}
+.chip.warn b{color:var(--warn)}
+
+/* ---------- table ---------- */
+table{width:100%;border-collapse:collapse;font-size:13px}
+.tbl-wrap{
+  background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius);
+  overflow:hidden;margin-bottom:14px;
+}
+thead th{
+  text-align:left;font-weight:500;color:var(--dim);font-size:11.5px;letter-spacing:.3px;
+  text-transform:uppercase;padding:9px 12px;background:var(--bg-elev2);
+  border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1;
+}
+tbody td{padding:8px 12px;border-bottom:1px solid var(--border-soft);vertical-align:top}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:rgba(255,255,255,.02)}
+td.name{font-family:var(--mono);white-space:nowrap}
+td.ms{font-family:var(--mono);text-align:right;white-space:nowrap;color:var(--dim)}
+td.cnt{font-family:var(--mono);text-align:right;color:var(--dim);white-space:nowrap}
+td.title{max-width:520px}
+td.title div{overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.errtext{color:var(--err);font-family:var(--mono);font-size:12px;word-break:break-word}
+td.title .errtext{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.stat{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-size:12.5px}
+.stat .sdot{width:7px;height:7px;border-radius:50%;flex:none}
+.s-ok{background:var(--ok)}
+.s-err{background:var(--err)}
+.s-warn{background:var(--warn)}
+.s-idle{background:var(--faint)}
+
+/* ---------- results ---------- */
+#results{display:flex;flex-direction:column;gap:10px;max-width:1040px}
+.result{
+  display:flex;gap:14px;background:var(--bg-elev);border:1px solid var(--border);
+  border-radius:var(--radius);padding:12px;transition:border-color .15s;
+}
+.result:hover{border-color:#2f3a4b}
+.result .cover{
+  width:150px;height:100px;flex:none;border-radius:6px;object-fit:cover;
+  background:var(--bg-elev2);border:1px solid var(--border-soft);
+}
+.result .body{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.result .rt{font-size:14px;font-weight:550;line-height:1.4}
+.result .rsub{color:var(--dim);font-family:var(--mono);font-size:12px;display:flex;flex-wrap:wrap;gap:8px}
+.result .rsub i{font-style:normal;color:var(--faint)}
+.tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:2px}
+.tag{
+  background:var(--bg-elev2);border:1px solid var(--border-soft);border-radius:5px;
+  padding:1px 7px;font-size:11.5px;color:var(--dim);white-space:nowrap;
+}
+.tag.prov{color:#a9c3ff;border-color:#25334a;background:#131c2b}
+button.tag{cursor:pointer;font-family:var(--mono);transition:background .15s,color .15s,border-color .15s}
+button.tag:hover{background:var(--bg-hover);color:var(--text);border-color:#334052}
+.result .acts{margin-top:auto;display:flex;gap:7px;flex-wrap:wrap}
+.mini{
+  background:transparent;border:1px solid var(--border);border-radius:6px;
+  padding:3px 9px;font-size:12px;color:var(--dim);cursor:pointer;text-decoration:none;
+}
+.mini:hover{background:var(--bg-hover);color:var(--text)}
+
+/* ---------- logs ---------- */
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+.card-head .k{margin:0}
+.chips{display:inline-flex;gap:7px;align-items:center;flex-wrap:wrap}
+.card-head .chip{padding:3px 10px;font-size:11.5px}
+.loglist{display:flex;flex-direction:column;margin:0 -6px}
+.lg-row{
+  display:grid;grid-template-columns:62px 10px minmax(0,1fr) minmax(0,164px) 74px;gap:10px;align-items:center;
+  padding:5px 6px;border-radius:6px;font-size:12.5px;transition:background .12s;
+}
+.lg-row:hover{background:rgba(255,255,255,.03)}
+.lg-row .lg-t{color:var(--faint);font-family:var(--mono);font-size:11.5px;white-space:nowrap}
+.lg-row .lg-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.lg-row .lg-label b{font-family:var(--mono);font-weight:600;color:#cfe0ff}
+.lg-row .lg-meta{color:var(--faint);font-size:11.5px;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;text-align:right}
+.lg-row .lg-ms{color:var(--dim);font-family:var(--mono);font-size:11.5px;text-align:right;white-space:nowrap}
+.lg-row.err{background:var(--err-soft)}
+.lg-row.err:hover{background:rgba(248,81,73,.18)}
+.lg-row.err .lg-label{color:#ffb1ac}
+.lg-row.slow .lg-ms{color:var(--warn)}
+.lg-row.click{cursor:pointer}
+td.ts{font-family:var(--mono);font-size:12px;color:var(--dim);white-space:nowrap}
+td.req{max-width:600px}
+.reqline{display:flex;align-items:center;gap:7px;min-width:0}
+.reqline .rl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.reqline .rl b{font-family:var(--mono);font-weight:600;color:#cfe0ff}
+.reqpath{font-family:var(--mono);font-size:11.5px;color:var(--faint);margin-top:3px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:600px}
+.method{font-family:var(--mono);font-size:10.5px;padding:0 5px;border-radius:4px;flex:none;
+  background:var(--bg-elev2);border:1px solid var(--border-soft);color:var(--dim)}
+.lvl{display:inline-block;min-width:42px;text-align:center;border-radius:5px;padding:1px 6px;
+  font-family:var(--mono);font-size:11.5px;font-weight:600}
+.lvl.ok{color:#7ee787;background:rgba(63,185,80,.1);border:1px solid rgba(63,185,80,.28)}
+.lvl.warn{color:#e3b341;background:var(--warn-soft);border:1px solid rgba(210,153,34,.32)}
+.lvl.err{color:#ff9a94;background:var(--err-soft);border:1px solid rgba(248,81,73,.32)}
+.msbar{display:inline-block;height:3px;border-radius:2px;background:var(--accent);
+  vertical-align:middle;margin-left:6px;opacity:.75}
+.msbar.slow{background:var(--warn)}
+.msbar.err{background:var(--err)}
+.switch{display:inline-flex;align-items:center;gap:6px;color:var(--dim);font-size:12.5px;
+  white-space:nowrap;cursor:pointer;user-select:none}
+.switch input{accent-color:var(--accent);width:14px;height:14px;cursor:pointer}
+.empty-row td{color:var(--faint);text-align:center;padding:28px 12px !important}
+
+/* ---------- one lookup = one row ---------- */
+.svlist{display:flex;flex-direction:column;gap:7px;margin:0 -4px}
+.sv{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 14px;align-items:center;
+  padding:9px 12px 9px 11px;border-radius:9px;background:var(--bg-elev2);
+  border:1px solid var(--border-soft);border-left:3px solid var(--faint);
+  cursor:pointer;transition:background .12s,border-color .12s;
+}
+.sv:hover{background:var(--bg-hover);border-color:var(--border)}
+.sv.ok{border-left-color:var(--ok)}
+.sv.fail{border-left-color:var(--err);background:linear-gradient(90deg,var(--err-soft),transparent 55%)}
+.sv-main{min-width:0}
+.sv-top{display:flex;align-items:baseline;gap:9px;min-width:0}
+.sv-q{font-family:var(--mono);font-weight:650;font-size:13.5px;color:#cfe0ff;white-space:nowrap;flex:none}
+.sv-badge{
+  font-size:10.5px;padding:0 6px;border-radius:4px;border:1px solid var(--border);
+  color:var(--dim);white-space:nowrap;flex:none;font-family:var(--mono);
+}
+.sv-badge.ok{color:#7ee787;border-color:rgba(63,185,80,.3);background:rgba(63,185,80,.08)}
+.sv-badge.fail{color:#ff9a94;border-color:rgba(248,81,73,.34);background:var(--err-soft)}
+.sv-res{color:var(--dim);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.sv-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+.sv-side{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none}
+.sv-time{color:var(--faint);font-size:11.5px;white-space:nowrap;font-family:var(--mono)}
+.sv-ms{color:var(--faint);font-size:11px;white-space:nowrap;font-family:var(--mono)}
+
+/* ---------- friendly detail sheets ---------- */
+.sheet-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.sheet-q{font-family:var(--mono);font-size:17px;font-weight:650;color:#cfe0ff;letter-spacing:.2px}
+.sheet-sum{color:var(--dim);font-size:12.5px}
+.sheet-sect{margin-top:16px}
+.sheet-sect>.st{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin-bottom:7px}
+.hits{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:9px}
+.hit{
+  display:flex;gap:9px;padding:7px;border-radius:8px;background:var(--bg-elev2);
+  border:1px solid var(--border-soft);cursor:pointer;transition:border-color .12s,background .12s;
+}
+.hit:hover{border-color:var(--accent);background:var(--bg-hover)}
+.hit img{width:62px;height:84px;object-fit:cover;border-radius:5px;flex:none;
+  background:var(--bg-elev);border:1px solid var(--border-soft)}
+.hit .hbody{min-width:0;display:flex;flex-direction:column;gap:2px;justify-content:center}
+.hit .ht{
+  font-size:12.5px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;
+  -webkit-box-orient:vertical;overflow:hidden;
+}
+.hit .hn{font-family:var(--mono);font-size:11px;color:var(--faint);white-space:nowrap}
+.hit .hp{font-size:11px;color:var(--accent);font-family:var(--mono)}
+
+.srclist{display:flex;flex-direction:column;gap:2px}
+.src{
+  display:grid;grid-template-columns:132px 62px 96px minmax(0,1fr);gap:10px;align-items:center;
+  padding:5px 8px;border-radius:6px;font-size:12.5px;
+}
+.src:hover{background:rgba(255,255,255,.03)}
+.src .sn{font-family:var(--mono);color:var(--text)}
+.src .sc{color:var(--dim);font-family:var(--mono);font-size:11.5px}
+.src .sm{color:var(--dim);font-family:var(--mono);font-size:11.5px}
+.src .se{color:var(--err);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.mv{display:grid;grid-template-columns:172px minmax(0,1fr);gap:16px}
+.mv-cover{width:100%;border-radius:8px;background:var(--bg-elev2);display:block}
+.mv-title{font-size:15px;font-weight:600;line-height:1.45;margin-bottom:4px}
+.mv-sub{color:var(--dim);font-size:12.5px;font-family:var(--mono);display:flex;gap:8px;flex-wrap:wrap}
+.mv-rows{display:grid;grid-template-columns:64px minmax(0,1fr);gap:6px 12px;font-size:12.5px;margin-top:12px}
+.mv-rows dt{color:var(--faint)}
+.mv-rows dd{margin:0;word-break:break-word}
+.mv-sum{
+  margin-top:12px;font-size:12.5px;line-height:1.75;color:var(--dim);max-height:190px;
+  overflow:auto;background:var(--bg);border:1px solid var(--border-soft);border-radius:7px;padding:10px 12px;
+  white-space:pre-wrap;word-break:break-word;
+}
+.mv-sum:empty{display:none}
+.mv-links{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.sheet-tabs{display:flex;gap:6px;margin-bottom:10px}
+.sheet-tabs button{
+  background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 10px;
+  font-size:11.5px;color:var(--dim);cursor:pointer;
+}
+.sheet-tabs button.on{color:var(--text);border-color:var(--accent);background:var(--accent-soft)}
+
+/* ---------- misc ---------- */
+.empty{
+  text-align:center;color:var(--faint);padding:40px 12px;border:1px dashed var(--border);
+  border-radius:var(--radius);
+}
+.hintline{color:var(--faint);font-size:12px;margin:0 0 14px}
+pre.json{
+  background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;
+  overflow:auto;max-height:420px;font-family:var(--mono);font-size:12px;color:#b9c4d4;margin:0;
+}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+textarea.inp{resize:vertical;min-height:110px;width:100%;display:block}
+.out{
+  background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius);
+  padding:14px 16px;white-space:pre-wrap;word-break:break-word;line-height:1.7;
+  font-size:14px;min-height:80px;
+}
+.out:empty::after{content:"翻译结果会显示在这里";color:var(--faint);font-size:13px}
+#tMeta{color:var(--faint);font-size:12px;margin:10px 0 0}
+.spinner{
+  width:14px;height:14px;border-radius:50%;border:2px solid var(--border);
+  border-top-color:var(--accent);animation:spin .7s linear infinite;display:inline-block;vertical-align:-2px;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{
+  position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(12px);
+  background:var(--bg-elev2);border:1px solid var(--border);border-radius:8px;
+  padding:9px 16px;font-size:13px;opacity:0;pointer-events:none;transition:.2s;z-index:60;
+  box-shadow:0 8px 24px rgba(0,0,0,.45);max-width:min(560px,90vw);
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.modal{
+  position:fixed;inset:0;background:rgba(4,7,11,.72);display:none;align-items:center;
+  justify-content:center;padding:32px;z-index:50;backdrop-filter:blur(2px);
+}
+.modal.show{display:flex}
+.modal-box{
+  background:var(--bg-elev);border:1px solid var(--border);border-radius:12px;
+  max-width:900px;width:100%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden;
+}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)}
+.modal-head h3{margin:0;font-size:14px;font-weight:550}
+.modal-box.narrow{max-width:460px}
+.modal-body{padding:14px 16px;overflow:auto}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field>span{font-size:12.5px;color:var(--dim)}
+.field>span em{font-style:normal;color:var(--faint);font-size:11.5px;margin-left:6px}
+.field .inp{width:100%}
+.field-row{display:flex;gap:8px}
+.field-row .inp{flex:1}
+.field-row.end{align-items:flex-end}
+/* 两个数字框长一样，光靠 placeholder 分不清哪个是额度哪个是已用 */
+.field-note{color:var(--faint);font-size:11px;line-height:1.5;word-break:break-all}
+#setTrNote:not(:empty){margin-bottom:12px}
+.modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+
+@media (max-width:860px){
+  body{grid-template-columns:1fr;grid-template-rows:54px auto 1fr}
+  aside{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--border);padding:6px}
+  nav{flex-direction:row}
+  .nav-item{white-space:nowrap}
+  .sidebar-foot{display:none}
+  .conn-pill{max-width:190px}
+  #backendLabel{display:none}
+  #connSep{display:none}
+  .lg-row{grid-template-columns:56px 8px minmax(0,1fr) 64px;gap:8px}
+  .lg-row .lg-meta{display:none}
+  #baseUrl{width:160px}
+  #token{display:none}
+  main{padding:14px}
+  /* 侧栏变成横向导航后，服务块收成一行小按钮，别再撑满整行 */
+  .aside-bottom{margin:0 0 0 auto;display:flex;align-items:center}
+  .svc-box{flex-direction:row;align-items:center;gap:8px;padding:0;border:0;margin:0}
+  .svc-title,.svc-pid,.svc-exit{display:none}
+  .svc-state{font-size:11.5px}
+  .svc-actions{display:flex;gap:5px}
+  .svc-actions .mini{padding:3px 8px}
+  .svc-box[hidden]{display:none}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><span class="logo"></span><b>MetaTube<em>Console</em></b></div>
+  <div class="head-right">
+    <div class="conn-pill" id="connPill" title="当前连接的后端">
+      <span id="connDot" class="dot" title="未连接"></span>
+      <span id="connLabel">未连接</span>
+      <span class="conn-sep" id="connSep"></span>
+      <span id="backendLabel" class="mono">—</span>
+    </div>
+    <button class="iconbtn" id="openSettings" title="设置后端与 access token">
+      <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M8 10.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Zm0-1.2a1.3 1.3 0 1 0 0-2.6 1.3 1.3 0 0 0 0 2.6Z"/><path fill="currentColor" d="m13.1 9.3.9.7-1 1.7-1.1-.4a4.6 4.6 0 0 1-1.2.7l-.2 1.2H8.4l-.2-1.2a4.6 4.6 0 0 1-1.2-.7l-1.1.4-1-1.7.9-.7a4.6 4.6 0 0 1 0-1.4l-.9-.7 1-1.7 1.1.4a4.6 4.6 0 0 1 1.2-.7l.2-1.2h2.1l.2 1.2c.4.2.8.4 1.2.7l1.1-.4 1 1.7-.9.7c.1.5.1 1 0 1.4Z" opacity=".85"/></svg>
+    </button>
+  </div>
+</header>
+
+<aside>
+  <nav id="nav">
+    <button class="nav-item active" data-view="status"><span class="ni"></span>状态</button>
+    <button class="nav-item" data-view="search"><span class="ni"></span>搜索</button>
+    <button class="nav-item" data-view="providers"><span class="ni"></span>源健康</button>
+    <button class="nav-item" data-view="translate"><span class="ni"></span>翻译</button>
+    <button class="nav-item" data-view="logs"><span class="ni"></span>日志</button>
+  </nav>
+
+  <div class="aside-bottom">
+    <div class="svc-box" id="svcBox" hidden>
+      <div class="svc-title">本机服务</div>
+      <div class="svc-state">
+        <span class="dot" id="svcDot"></span>
+        <b id="svcState">未知</b>
+        <span class="svc-pid mono" id="svcPid"></span>
+      </div>
+      <div class="svc-actions">
+        <button class="mini" id="svcStart">启动</button>
+        <button class="mini" id="svcStop">停止</button>
+        <button class="mini" id="svcRestart">重启</button>
+      </div>
+      <button class="svc-exit" id="svcExit">退出面板与服务</button>
+    </div>
+
+    <div class="sidebar-foot" id="footNote">
+      由服务端直接提供<br>点右上角齿轮可改后端与 token
+    </div>
+  </div>
+</aside>
+
+<main>
+  <!-- ============ 状态 ============ -->
+  <section class="view active" id="view-status">
+    <div class="view-head">
+      <h1>状态总览<span>后端运行信息与出站代理</span></h1>
+      <button id="refreshStatus" class="btn ghost">刷新</button>
+    </div>
+
+    <div class="proxy" id="proxyCard">
+      <div class="plabel">出站代理</div>
+      <div class="pvalue" id="proxyValue">未连接</div>
+      <div class="pmeta" id="proxyMeta">点击「连接」后读取</div>
+    </div>
+
+    <div class="grid">
+      <div class="card"><div class="k">版本</div><div class="v mono" id="sVersion">—</div></div>
+      <div class="card"><div class="k">引擎</div><div class="v mono" id="sApp">—</div></div>
+      <div class="card"><div class="k">运行时长</div><div class="v mono" id="sUptime">—</div></div>
+      <div class="card"><div class="k">数据库</div><div class="v mono" id="sDB">—</div></div>
+      <div class="card"><div class="k">平台</div><div class="v mono small" id="sPlatform">—</div></div>
+      <div class="card"><div class="k">源数量</div><div class="v mono small" id="sProviders">—</div></div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="k">数据源 <span id="providerTagsHint" style="text-transform:none;letter-spacing:0"></span></div>
+      <div class="tags" id="providerTags"><span class="hintline" style="margin:0">连接后加载</span></div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="card-head">
+        <div class="k">最近搜索 <span id="recentHint" style="text-transform:none;letter-spacing:0;color:var(--faint)"></span></div>
+        <div class="chips">
+          <span class="chips" id="recentChips"></span>
+          <button class="mini" id="gotoLogs">全部日志 →</button>
+        </div>
+      </div>
+      <div class="svlist" id="recentSessions"><div class="hintline" style="margin:0">连接后加载</div></div>
+    </div>
+  </section>
+
+  <!-- ============ 请求日志 ============ -->
+  <section class="view" id="view-logs">
+    <div class="view-head">
+      <h1>请求日志<span>最近 500 条请求，新的在上面</span></h1>
+      <div class="chips" id="logStats"></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="seg" id="logSeg">
+        <button data-lv="all" class="on">全部</button>
+        <button data-lv="err">仅错误</button>
+        <button data-lv="slow">慢请求 ≥1s</button>
+        <button data-lv="meta">仅元数据</button>
+      </div>
+      <input id="logFilter" class="inp mono grow" placeholder="过滤：番号 / 源 / 路径" spellcheck="false">
+      <label class="switch"><input type="checkbox" id="logTail" checked>实时跟随</label>
+      <button id="logRefresh" class="btn ghost">刷新</button>
+      <button id="logClear" class="btn ghost">清空</button>
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th style="width:90px">时间</th>
+          <th>请求</th>
+          <th style="width:72px">状态</th>
+          <th style="width:104px">耗时</th>
+          <th style="width:230px">结果 / 错误</th>
+          <th style="width:52px"></th>
+        </tr></thead>
+        <tbody id="logBody"></tbody>
+      </table>
+    </div>
+
+    <p class="hintline">面板自身的状态轮询与日志查询不计入，避免刷屏。点击任意一行可以看到该请求的完整字段。</p>
+  </section>
+
+  <!-- ============ 搜索 ============ -->
+  <section class="view" id="view-search">
+    <div class="view-head">
+      <h1>搜索<span>按番号或 URL 查询，支持逐源诊断</span></h1>
+    </div>
+
+    <div class="toolbar">
+      <input id="q" class="inp mono" placeholder="番号或 URL" spellcheck="false">
+      <div class="seg" id="modeSeg">
+        <button data-mode="all" class="on">聚合搜索</button>
+        <button data-mode="probe">逐源探测</button>
+      </div>
+      <select id="concurrency" class="inp" title="逐源探测的并发数">
+        <option value="4">并发 4</option>
+        <option value="6" selected>并发 6</option>
+        <option value="10">并发 10</option>
+        <option value="34">并发 全部</option>
+      </select>
+      <label class="switch" id="trWrap" title="搜索完成后调用翻译接口，把标题和演员名译成中文，并补全省略的发售日期">
+        <input type="checkbox" id="autoTranslate">自动翻译
+      </label>
+      <button id="searchBtn" class="btn primary">搜索</button>
+    </div>
+
+    <div id="searchSummary" class="summary"></div>
+    <div id="probeWrap" class="tbl-wrap" style="display:none">
+      <table>
+        <thead><tr><th style="width:150px">源</th><th style="width:110px">状态</th><th style="width:78px">耗时</th><th style="width:60px">条数</th><th>标题 / 错误</th><th style="width:60px"></th></tr></thead>
+        <tbody id="probeBody"></tbody>
+      </table>
+    </div>
+    <div id="results"></div>
+  </section>
+
+  <!-- ============ 源健康 ============ -->
+  <section class="view" id="view-providers">
+    <div class="view-head">
+      <h1>源健康<span>全量探测每个 provider 的可用性</span></h1>
+      <span id="providerCount" class="ver mono"></span>
+    </div>
+
+    <div class="toolbar">
+      <input id="probeQuery" class="inp mono grow" placeholder="用于探测的番号" spellcheck="false">
+      <select id="probeConcurrency" class="inp">
+        <option value="4">并发 4</option>
+        <option value="6" selected>并发 6</option>
+        <option value="10">并发 10</option>
+        <option value="34">并发 全部</option>
+      </select>
+      <button id="probeAllBtn" class="btn primary">开始探测</button>
+    </div>
+
+    <p class="hintline">逐个源单独发一次搜索请求，可以精确定位是哪个源不通，以及失败原因（超时 / 地区封锁 / 解析失败）。</p>
+
+    <div id="probeAllSummary" class="summary"></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th style="width:150px">源</th><th style="width:110px">状态</th><th style="width:78px">耗时</th><th style="width:60px">条数</th><th>结果 / 错误</th><th style="width:60px"></th></tr></thead>
+        <tbody id="providerBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ 翻译 ============ -->
+  <section class="view" id="view-translate">
+    <div class="view-head">
+      <h1>翻译<span>直接验证服务端翻译引擎是否可用</span></h1>
+    </div>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="row" style="margin-bottom:10px">
+        <div class="field"><label>源语言</label><input id="tFrom" class="inp mono" value="auto" style="width:96px"></div>
+        <div class="field"><label>目标语言</label><input id="tTo" class="inp mono" value="zh" style="width:96px"></div>
+        <div class="field"><label>引擎</label>
+          <select id="tEngine" class="inp" style="width:170px">
+            <option value="baiduai">baiduai</option>
+            <option value="baidu">baidu</option>
+            <option value="deepl">deepl</option>
+            <option value="google">google</option>
+            <option value="googlefree">googlefree</option>
+            <option value="openai">openai</option>
+          </select>
+        </div>
+        <div class="field grow" style="flex:1;min-width:240px">
+          <label>引擎参数（可选，逗号分隔；长期密钥请在右上角设置里填）</label>
+          <input id="tExtra" class="inp mono" placeholder="baidu-app-id=..,baidu-app-key=.." spellcheck="false">
+        </div>
+        <button id="translateBtn" class="btn primary">翻译</button>
+      </div>
+      <textarea id="tText" class="inp" placeholder="粘贴日文标题或简介，测试翻译是否正常"></textarea>
+      <p id="tMeta"></p>
+    </div>
+
+    <div class="out" id="tOut"></div>
+  </section>
+</main>
+
+<div class="modal" id="modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="modalTitle">详情</h3>
+      <div class="chips">
+        <button class="mini" id="modalRaw" hidden>原始 JSON</button>
+        <button class="btn ghost" id="modalClose">关闭</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div id="modalFriendly"></div>
+      <pre class="json" id="modalJson" hidden></pre>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="settings">
+  <div class="modal-box narrow">
+    <div class="modal-head"><h3>连接设置</h3><button class="btn ghost" id="settingsClose">关闭</button></div>
+    <div class="modal-body">
+      <label class="field">
+        <span>后端地址</span>
+        <input id="setBase" class="inp mono" spellcheck="false" placeholder="http://127.0.0.1:8080">
+      </label>
+      <label class="field">
+        <span>Access Token<em>可选，留空表示后端不鉴权</em></span>
+        <div class="field-row">
+          <input id="setToken" class="inp mono" type="password" autocomplete="off" placeholder="留空表示保持不变">
+          <button class="mini" id="setClearToken" title="清除已保存的 token">清除</button>
+        </div>
+      </label>
+
+      <div class="field" id="setSvcField" hidden>
+        <span>本机服务端口<em>面板启动的 metatube-server 用这个端口</em></span>
+        <input id="setPort" class="inp mono" type="number" min="1" max="65535" placeholder="8080">
+        <div class="field-note mono" id="setExe"></div>
+      </div>
+
+      <div class="field">
+        <span>翻译引擎<em>控制台把标题、演员名译成中文时用；密钥存在本机服务的 translate.json</em></span>
+        <div class="field-row">
+          <select id="setTrEngine" class="inp"></select>
+          <button class="mini" id="setTrTest" title="用已保存的密钥翻一句短文本">测试</button>
+        </div>
+      </div>
+      <div id="setTrFields"></div>
+      <div class="field-note mono" id="setTrNote"></div>
+
+      <p class="hintline" id="setHint">填好后点连接，连上的后端会显示在右上角。</p>
+
+      <div class="modal-foot">
+        <button class="btn ghost" id="setCancel">取消</button>
+        <button class="btn" id="setConnect">保存并连接</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+
+  var state = {
+    base: 'http://127.0.0.1:8080',
+    token: '',
+    mode: 'all',
+    providers: { movie: [], actor: [] },
+    status: null,
+    busy: false,
+    logs: [],        // 按 seq 升序，最多 500 条
+    logSeq: 0,
+    logLevel: 'all',
+    logStats: null,
+    sessions: [],    // 按番号聚合的搜索结果，总览页用这个
+    lastItems: null, // 上一次搜索的原始条目，切换翻译开关时重画用
+    panel: null,     // 由面板 exe 托管时的 /panel/info
+    svc: null,       // 本机服务状态
+    connected: false
+  };
+
+  /* ---------------- utils ---------------- */
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function toast(msg, ms) {
+    var el = $('#toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { el.classList.remove('show'); }, ms || 2600);
+  }
+
+  function fmtMs(ms) {
+    if (ms == null) return '—';
+    if (ms < 1000) return Math.round(ms) + ' ms';
+    return (ms / 1000).toFixed(2) + ' s';
+  }
+
+  function fmtUptime(sec) {
+    if (sec == null) return '—';
+    sec = Math.max(0, Math.floor(sec));
+    var d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600),
+        m = Math.floor(sec % 3600 / 60), s = sec % 60;
+    if (d) return d + 'd ' + h + 'h';
+    if (h) return h + 'h ' + m + 'm';
+    if (m) return m + 'm ' + s + 's';
+    return s + 's';
+  }
+
+  function shortDate(v) {
+    if (!v) return '';
+    var m = String(v).match(/\d{4}-\d{2}-\d{2}/);
+    return m ? m[0] : String(v);
+  }
+
+  function setDot(cls, title) {
+    var el = $('#connDot');
+    el.className = 'dot ' + cls;
+    el.title = title || '';
+  }
+
+  function hostOf(u) {
+    if (!u) return '';
+    try { return new URL(u).host || u; } catch (e) { return u; }
+  }
+
+  /* ---------------- api ---------------- */
+
+  function api(path, opts) {
+    opts = opts || {};
+    var url = state.base.replace(/\/+$/, '') + path;
+    var headers = {};
+    if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
+    var ctl = new AbortController();
+    var timeout = opts.timeout || 60000;
+    var timer = setTimeout(function () { ctl.abort(); }, timeout);
+    var t0 = performance.now();
+    var init = { headers: headers, signal: ctl.signal, method: opts.method || 'GET' };
+    if (opts.body !== undefined) {
+      headers['Content-Type'] = 'application/json';
+      init.body = JSON.stringify(opts.body);
+    }
+    return fetch(url, init)
+      .then(function (res) {
+        return res.text().then(function (text) {
+          var ms = performance.now() - t0;
+          var body = null;
+          if (text) { try { body = JSON.parse(text); } catch (e) { body = { raw: text }; } }
+          if (!res.ok) {
+            var e = body && body.error;
+            var msg = e && (e.message || e.Message);
+            if (!msg && typeof e === 'string') msg = e;
+            if (!msg) msg = 'HTTP ' + res.status;
+            var err = new Error(msg);
+            err.status = res.status;
+            err.ms = ms;
+            throw err;
+          }
+          return { body: body, ms: ms };
+        });
+      })
+      .finally(function () { clearTimeout(timer); });
+  }
+
+  /* ---------------- logs ---------------- */
+
+  var KIND_LABEL = {
+    search: '搜索', actor_search: '演员搜索', movie: '影片详情', actor: '演员详情',
+    review: '影评', image: '图片', translate: '翻译', db: '数据库版本',
+    providers: '源列表', modules: '模块列表', root: '服务信息', other: '请求', unknown: '未匹配路由'
+  };
+
+  function pad2(n) { return n < 10 ? '0' + n : String(n); }
+
+  function fmtClock(ms) {
+    var d = new Date(ms);
+    return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+  }
+
+  function fmtFull(ms) {
+    var d = new Date(ms);
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' ' +
+      pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+  }
+
+  function fmtAgo(ms) {
+    var d = Date.now() - ms;
+    if (d < 1500) return '刚刚';
+    if (d < 60000) return Math.round(d / 1000) + ' 秒前';
+    if (d < 3600000) return Math.round(d / 60000) + ' 分前';
+    if (d < 86400000) return Math.round(d / 3600000) + ' 小时前';
+    return Math.round(d / 86400000) + ' 天前';
+  }
+
+  function fmtBytes(n) {
+    if (!n) return '';
+    if (n < 1024) return n + ' B';
+    if (n < 1048576) return (n / 1024).toFixed(n < 10240 ? 1 : 0) + ' KB';
+    return (n / 1048576).toFixed(1) + ' MB';
+  }
+
+  function qParam(query, key) {
+    if (!query) return '';
+    var m = String(query).match(new RegExp('(?:^|&)' + key + '=([^&]*)'));
+    if (!m) return '';
+    try { return decodeURIComponent(m[1].replace(/\+/g, ' ')); } catch (e) { return m[1]; }
+  }
+
+  // 把 %E3%83%86… 这种还原成原文，日志里的路径才看得懂
+  function prettyQuery(q) {
+    if (!q) return '';
+    try { return decodeURIComponent(q.replace(/\+/g, ' ')); } catch (e) { return q; }
+  }
+
+  // 把一条请求翻成一句人话：动作 + 对象 + 补充信息
+  function describe(r) {
+    var kind = r.kind || 'other';
+    var label = KIND_LABEL[kind] || '请求';
+    var target = '';
+    var meta = [];
+
+    if (kind === 'search' || kind === 'actor_search') {
+      target = r.q || qParam(r.query, 'q') || '';
+      if (r.provider) meta.push(r.provider);
+    } else if (kind === 'movie' || kind === 'actor' || kind === 'review') {
+      target = (r.provider || '?') + '/' + (r.id || '?');
+    } else if (kind === 'image') {
+      var seg = String(r.path || '').split('/');
+      label = seg[3] === 'primary' ? '封面图' : seg[3] === 'backdrop' ? '背景图' : '缩略图';
+      target = (r.provider || '?') + '/' + (r.id || '?');
+    } else if (kind === 'translate') {
+      var engine = qParam(r.query, 'engine');
+      if (engine) meta.push(engine);
+    } else if (kind === 'unknown' || kind === 'other') {
+      target = r.path || '';
+    }
+    return { label: label, target: target, meta: meta.filter(Boolean), kind: kind };
+  }
+
+  function levelOf(r) {
+    if (r.status >= 500) return 'err';
+    if (r.status >= 400) return 'warn';
+    if (r.status >= 300) return 'info';
+    return 'ok';
+  }
+
+  function logTitle(r) {
+    return fmtFull(r.ts_ms) + ' · ' + r.method + ' ' + r.path + (r.query ? '?' + r.query : '');
+  }
+
+  function resultText(r) {
+    var d = describe(r);
+    if (r.status >= 400) return r.error || '失败';
+    if (r.items) return r.items + ' 条';
+    if (d.kind === 'translate') {
+      var q = qParam(r.query, 'q');
+      if (q) return q.length + ' 字符';
+    }
+    if (r.bytes) return fmtBytes(r.bytes);
+    return d.kind === 'unknown' ? '无路由' : '';
+  }
+
+  function renderLogStats() {
+    var s = state.logStats || {};
+    var chips = [
+      '<span class="chip">进程内 <b>' + (s.total || 0) + '</b> 条</span>',
+      '<span class="chip ' + (s.errors ? 'err' : '') + '">错误 <b>' + (s.errors || 0) + '</b></span>',
+      '<span class="chip ' + (s.slow ? 'warn' : '') + '">慢 <b>' + (s.slow || 0) + '</b></span>',
+      '<span class="chip">平均 <b>' + fmtMs(s.avg_ms) + '</b></span>'
+    ];
+    $('#logStats').innerHTML = chips.join('') +
+      '<span class="chip">缓冲 <b>' + (s.buffered || 0) + '</b>/' + (s.capacity || 500) + '</span>';
+  }
+
+  function bindLogClicks(host) {
+    $$('[data-seq]', host).forEach(function (el) {
+      el.addEventListener('click', function (e) {
+        if (e.target.closest('button')) return;
+        var seq = Number(el.getAttribute('data-seq'));
+        var rec = state.logs.filter(function (x) { return x.seq === seq; })[0];
+        if (rec) openJson('#' + seq + ' · ' + rec.method + ' ' + rec.path, rec);
+      });
+    });
+    $$('button[data-json-row]', host).forEach(function (b) {
+      b.addEventListener('click', function () {
+        var seq = Number(b.getAttribute('data-json-row'));
+        var rec = state.logs.filter(function (x) { return x.seq === seq; })[0];
+        if (rec) openJson('#' + seq + ' · ' + rec.method + ' ' + rec.path, rec);
+      });
+    });
+  }
+
+  // 一次搜索一行：番号 + 成功与否 + 来源 + 结果数量，点开才看细节
+  function renderRecentSessions() {
+    var host = $('#recentSessions');
+    var list = state.sessions || [];
+    var rows = list.slice(0, 5);
+
+    var chips = $('#recentChips');
+    if (chips) {
+      var ok = list.filter(function (s) { return s.ok; }).length;
+      var fail = list.length - ok;
+      chips.innerHTML = '<span class="chip">搜索 <b>' + list.length + '</b></span>' +
+        (fail ? '<span class="chip err">失败 <b>' + fail + '</b></span>' : '');
+    }
+
+    if (!rows.length) {
+      host.innerHTML = '<div class="hintline" style="margin:0">还没有搜索记录。到「搜索」页查一次番号，这里会出现一行摘要。</div>';
+      return;
+    }
+
+    host.innerHTML = rows.map(function (s, i) {
+      var b = sessionBadge(s);
+      var provs = (s.providers || []).slice(0, 6);
+      var more = (s.providers || []).length - provs.length;
+      var tags = provs.map(function (p) { return '<span class="tag prov">' + esc(p) + '</span>'; }).join('') +
+        (more > 0 ? '<span class="tag">+' + more + '</span>' : '');
+      return '<div class="sv ' + (s.ok ? 'ok' : 'fail') + '" data-session="' + i + '" title="点开看这次搜索的完整结果">' +
+        '<div class="sv-main">' +
+          '<div class="sv-top">' +
+            '<span class="sv-q">' + esc(s.q) + '</span>' +
+            '<span class="sv-badge ' + b.cls + '">' + b.text + '</span>' +
+            '<span class="sv-res">' + esc(sessionLine(s)) + '</span>' +
+          '</div>' +
+          (tags ? '<div class="sv-tags">' + tags + '</div>' : '') +
+        '</div>' +
+        '<div class="sv-side">' +
+          '<span class="sv-time">' + esc(fmtAgo(s.ts_ms)) + '</span>' +
+          '<span class="sv-ms">' + fmtMs(s.ms) + '</span>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    $$('[data-session]', host).forEach(function (el) {
+      el.addEventListener('click', function () {
+        var s = (state.sessions || [])[Number(el.getAttribute('data-session'))];
+        if (s) openSession(s);
+      });
+    });
+  }
+
+  function sessionBadge(s) {
+    if (!s.ok) return { cls: 'fail', text: '失败' };
+    if (!s.items) return { cls: '', text: '无结果' };
+    return { cls: 'ok', text: '成功' };
+  }
+
+  function sessionLine(s) {
+    var parts = [];
+    parts.push(s.items ? s.items + ' 条结果' : (s.ok ? '无结果' : '未取到结果'));
+    if (s.providers && s.providers.length) parts.push(s.providers.length + ' 个来源');
+    if (s.requests > 1) parts.push(s.requests + ' 次请求');
+    return parts.join(' · ');
+  }
+
+  function truncateText(s, n) {
+    s = String(s || '');
+    return s.length > n ? s.slice(0, n) + '…' : s;
+  }
+
+  function filteredLogs() {
+    var f = ($('#logFilter').value || '').trim().toLowerCase();
+    var lv = state.logLevel;
+    return state.logs.filter(function (r) {
+      if (lv === 'err' && r.status < 400) return false;
+      if (lv === 'slow' && (r.ms || 0) < 1000) return false;
+      if (lv === 'meta' && (r.kind === 'image' || r.kind === 'root' || r.kind === 'modules')) return false;
+      if (!f) return true;
+      var d = describe(r);
+      var hay = [r.q, r.provider, r.id, r.path, r.query, r.error, d.label, d.target].join(' ').toLowerCase();
+      return hay.indexOf(f) >= 0;
+    }).reverse(); // 新的在上面
+  }
+
+  function renderLogTable() {
+    var host = $('#logBody');
+    var rows = filteredLogs();
+    if (!rows.length) {
+      host.innerHTML = '<tr class="empty-row"><td colspan="6">' +
+        (state.logs.length ? '没有匹配当前筛选条件的记录' : '还没有记录，做一次搜索试试') + '</td></tr>';
+      return;
+    }
+    host.innerHTML = rows.map(function (r) {
+      var d = describe(r);
+      var lv = levelOf(r);
+      var slow = r.ms >= 1000;
+      var barW = Math.max(4, Math.min(44, Math.round(r.ms / 3000 * 44)));
+      var result;
+      if (r.status >= 400) {
+        var em = r.error || ('HTTP ' + r.status);
+        result = '<span class="errtext" title="' + esc(em) + '">' + esc(em) + '</span>';
+      } else if (r.items) {
+        result = '<span class="stat"><span class="sdot s-ok"></span>' + r.items + ' 条结果</span>';
+      } else if (r.bytes) {
+        result = '<span style="color:var(--faint)">' + esc(fmtBytes(r.bytes)) + '</span>';
+      } else {
+        result = '<span style="color:var(--faint)">—</span>';
+      }
+      var tag = d.meta.length ? ' <span class="tag prov">' + esc(d.meta.join(' · ')) + '</span>' : '';
+      return '<tr data-seq="' + r.seq + '" title="' + esc(fmtFull(r.ts_ms)) + '">' +
+        '<td class="ts">' + esc(fmtClock(r.ts_ms)) + '</td>' +
+        '<td class="req">' +
+          '<div class="reqline">' +
+            (r.method !== 'GET' ? '<span class="method">' + esc(r.method) + '</span>' : '') +
+            '<span class="rl">' + esc(d.label) + (d.target ? ' <b>' + esc(d.target) + '</b>' : '') + '</span>' + tag +
+          '</div>' +
+          '<div class="reqpath">' + esc(r.path) + (r.query ? '?' + esc(prettyQuery(r.query)) : '') + '</div>' +
+        '</td>' +
+        '<td><span class="lvl ' + lv + '">' + r.status + '</span></td>' +
+        '<td class="ms">' + fmtMs(r.ms) +
+          '<span class="msbar ' + (lv === 'err' ? 'err' : slow ? 'slow' : '') + '" style="width:' + barW + 'px"></span></td>' +
+        '<td class="title">' + result + '</td>' +
+        '<td><button class="mini" data-json-row="' + r.seq + '">JSON</button></td>' +
+        '</tr>';
+    }).join('');
+    bindLogClicks(host);
+  }
+
+  // 增量拉取：带 since 只取新的，面板每 3 秒跟随一次也不心疼
+  function syncLogs(full) {
+    // 面板模式下 base 是空串（走同源代理），不能当成"未配置"跳过
+    if (!panelMode && !state.base) return Promise.resolve();
+    var path = full ? '/v1/logs?limit=500' : '/v1/logs?since=' + state.logSeq + '&limit=500';
+    return api(path, { timeout: 15000 })
+      .then(function (r) {
+        var d = (r.body && r.body.data) || {};
+        var items = d.items || [];
+        if (full) state.logs = [];
+        if (items.length) {
+          state.logs = state.logs.concat(items);
+          if (state.logs.length > 500) state.logs = state.logs.slice(state.logs.length - 500);
+        }
+        if (typeof d.last_seq === 'number') state.logSeq = d.last_seq;
+        state.logStats = d.stats || state.logStats;
+        if (d.sessions) state.sessions = d.sessions;
+        renderLogStats();
+        renderRecentSessions();
+        if ($('#view-logs').classList.contains('active')) renderLogTable();
+      })
+      .catch(function () { /* 日志接口失败时保持静默，不影响主流程 */ });
+  }
+
+  function clearLogs() {
+    api('/v1/logs', { method: 'DELETE', timeout: 8000 })
+      .then(function () {
+        state.logs = [];
+        state.sessions = [];
+        renderLogStats();
+        renderRecentSessions();
+        renderLogTable();
+        toast('日志已清空');
+      })
+      .catch(function (err) { toast('清空失败：' + err.message, 3600); });
+  }
+
+  /* ---------------- 面板托管（由 metatube-panel.exe 打开时） ---------------- */
+
+  // panelMode：页面由面板进程提供，/v1 走面板代理，服务由面板托管。
+  var panelMode = false;
+
+  function detectPanel() {
+    return fetch('panel/info', { cache: 'no-store' })
+      .then(function (r) { if (!r.ok) throw new Error('no panel'); return r.json(); })
+      .then(function (info) { enterPanelMode(info); return true; })
+      .catch(function () { return false; });
+  }
+
+  function enterPanelMode(info) {
+    panelMode = true;
+    state.panel = info;
+    state.base = '';   // 相对路径：由面板转发到真实后端
+    state.token = '';
+    $('#svcBox').hidden = false;
+    $('#footNote').hidden = true;
+    applyPanelInfo(info);
+  }
+
+  function applyPanelInfo(info) {
+    if (!info) return;
+    state.panel = info;
+    setSvcState(info.service);
+    var host = hostOf(info.backend) || info.backend || '未设置后端';
+    $('#backendLabel').textContent = host;
+    $('#backendLabel').title = info.backend || '';
+    if (!state.connected) $('#connLabel').textContent = '未连接';
+  }
+
+  function setSvcState(svc) {
+    if (!svc) return;
+    state.svc = svc;
+    var st = svc.state, dot = $('#svcDot');
+    var label = {
+      running: '运行中', starting: '启动中', stopped: '已停止', external: '外部实例'
+    }[st] || st;
+    dot.className = 'dot ' + (st === 'running' ? 'on' : st === 'starting' ? 'busy' : st === 'external' ? 'warn' : 'off');
+    $('#svcState').textContent = label;
+    $('#svcPid').textContent = svc.pid ? 'pid ' + svc.pid : (svc.port ? ':' + svc.port : '');
+    $('#svcStart').disabled = (st === 'running' || st === 'starting' || st === 'external');
+    $('#svcStop').disabled = !(st === 'running' || st === 'starting');
+    $('#svcRestart').disabled = (st === 'external');
+  }
+
+  function svcAction(name, btn) {
+    var label = { start: '启动', stop: '停止', restart: '重启' }[name] || name;
+    if (btn) btn.disabled = true;
+    toast(label + '服务…', 8000);
+    return panelPost('/panel/service/' + name)
+      .then(function (res) {
+        if (res.service) setSvcState(res.service);
+        toast('服务' + label + '完成');
+        return refreshPanel();
+      })
+      .catch(function (err) {
+        toast(label + '失败：' + err.message, 4600);
+      })
+      .finally(function () { if (btn) btn.disabled = false; });
+  }
+
+  // panelPost / panelGet 走面板自己的接口（相对路径，不经代理）。
+  function panelPost(path, body) {
+    return fetch(path, {
+      method: 'POST',
+      headers: body ? { 'Content-Type': 'application/json' } : {},
+      body: body ? JSON.stringify(body) : undefined
+    }).then(readPanelResponse);
+  }
+
+  function panelGet(path) {
+    return fetch(path, { cache: 'no-store' }).then(readPanelResponse);
+  }
+
+  function readPanelResponse(res) {
+    return res.text().then(function (text) {
+      var body = null;
+      if (text) { try { body = JSON.parse(text); } catch (e) { body = { raw: text }; } }
+      if (!res.ok) {
+        var e = body && body.error;
+        var msg = (e && (e.message || e.Message)) || ('HTTP ' + res.status);
+        var err = new Error(msg);
+        err.status = res.status;
+        throw err;
+      }
+      return (body && body.data) || body || {};
+    });
+  }
+
+  function refreshPanel() {
+    if (!panelMode) return Promise.resolve();
+    return panelGet('/panel/info').then(function (info) {
+      var wasStopped = state.svc && state.svc.state !== 'running' && state.svc.state !== 'external';
+      applyPanelInfo(info);
+      var running = info.service && (info.service.state === 'running' || info.service.state === 'external');
+      if (running && !state.connected) connect();
+      if (!running && state.connected && wasStopped) setConnected(false, '服务已停止');
+      return info;
+    }).catch(function () { /* 面板接口暂时不可用，保持界面 */ });
+  }
+
+  /* ---------------- 设置（后端 / token） ---------------- */
+
+  var tokenTouched = false, tokenCleared = false;
+
+  function openSettings() {
+    tokenTouched = false;
+    tokenCleared = false;
+    $('#setToken').value = '';
+    $('#settings').classList.add('show');
+    if (panelMode) {
+      $('#setSvcField').hidden = false;
+      $('#setHint').textContent = '连上的后端会显示在右上角；token 由面板代为附加。';
+      panelGet('/panel/config').then(function (cfg) {
+        $('#setBase').value = cfg.backend || '';
+        $('#setToken').placeholder = cfg.has_token ? '已保存，留空表示保持不变' : '后端未设置鉴权';
+        $('#setPort').value = (cfg.service && cfg.service.port) || 8080;
+        $('#setExe').textContent = '服务程序：' + ((cfg.service && cfg.service.exe) || '—');
+      }).catch(function (err) { $('#setHint').textContent = '读取配置失败：' + err.message; });
+    } else {
+      $('#setSvcField').hidden = true;
+      $('#setHint').textContent = '填好后点连接，连上的后端会显示在右上角。';
+      $('#setBase').value = state.base || location.origin;
+      $('#setToken').value = state.token || '';
+      $('#setToken').placeholder = '后端未开启鉴权可留空';
+    }
+    setTimeout(function () { $('#setBase').focus(); }, 30);
+
+    // 翻译引擎：引擎名与已保存的字段一起回填，密钥输入框留空表示不动
+    renderTrEngineSelect();
+    var cfg = state.trConfig;
+    if (cfg && cfg.engine) $('#setTrEngine').value = cfg.engine;
+    renderTrFields($('#setTrEngine').value, (cfg && cfg.fields) || {});
+    $('#setTrNote').textContent = '';
+    // 打开时总是拉一次最新的：状态可能是几秒前的，也可能压根没连上
+    loadTranslateConfig().then(function (fresh) {
+      if (!fresh) return;
+      if (fresh.engine) $('#setTrEngine').value = fresh.engine;
+      renderTrFields($('#setTrEngine').value, fresh.fields || {});
+    });
+  }
+
+  function closeSettings() { $('#settings').classList.remove('show'); }
+
+  function submitSettings() {
+    var backend = ($('#setBase').value || '').trim();
+    var token = $('#setToken').value || '';
+    if (!backend) { toast('请填后端地址，例如 http://127.0.0.1:8080'); return; }
+
+    var done;
+    if (panelMode) {
+      var body = {
+        backend: backend,
+        token: tokenCleared ? '' : token,
+        token_set: tokenCleared || tokenTouched || token.length > 0
+      };
+      var port = parseInt($('#setPort').value, 10);
+      if (port > 0) body.service_port = port;
+      done = panelPost('/panel/config', body).then(function (res) {
+        applyPanelInfo({ backend: res.backend, service: res.service, has_token: res.has_token, version: (state.panel && state.panel.version) });
+      });
+    } else {
+      state.base = backend;
+      state.token = token;
+      try {
+        localStorage.setItem('mt.base', state.base);
+        localStorage.setItem('mt.token', state.token);
+      } catch (e) {}
+      done = Promise.resolve();
+    }
+
+    return done.then(function () {
+      // 翻译密钥跟着一起存：同一个弹窗里改完就生效，失败也不挡住连接
+      return saveTranslateConfig().catch(function (err) {
+        toast('翻译设置没保存：' + err.message, 5200);
+      });
+    }).then(function () {
+      closeSettings();
+      state.connected = false;
+      return connect();
+    }).catch(function (err) {
+      toast('保存失败：' + err.message, 4600);
+    });
+  }
+
+  /* ---------------- connect / status ---------------- */
+
+  function setConnected(ok, label) {
+    state.connected = ok;
+    setDot(ok ? 'on' : 'off', ok ? '已连接' : (label || '未连接'));
+    $('#connLabel').textContent = ok ? '已连接' : (label || '未连接');
+    $('#connSep').hidden = !ok;
+    if (!ok) $('#backendLabel').textContent = $('#backendLabel').textContent || '—';
+  }
+
+  function connect() {
+    setDot('busy', '连接中');
+    $('#connLabel').textContent = '连接中';
+    return api('/v1/status', { timeout: 8000 })
+      .then(function (r) {
+        setConnected(true);
+        applyStatus(r.body.data);
+        state.logSeq = 0;
+        return Promise.all([loadProviders(), loadTranslateConfig(), syncLogs(true)]).then(function () { return true; });
+      })
+      .catch(function (err) {
+        var offline = panelMode && !(state.svc && (state.svc.state === 'running' || state.svc.state === 'external'));
+        setConnected(false, offline ? '服务未运行' : '连接失败');
+        var card = $('#proxyCard');
+        card.className = 'proxy off';
+        $('#proxyValue').textContent = '无法连接';
+        $('#proxyMeta').textContent = offline
+          ? '本机服务没有在跑。点左侧「本机服务」里的启动，起来后会自动连接。'
+          : (err.name === 'AbortError' ? '请求超时，检查地址与端口' : err.message);
+        if (!offline) toast('连接失败：' + (err.name === 'AbortError' ? '超时' : err.message), 4000);
+        return false;
+      });
+  }
+
+  function applyStatus(d) {
+    if (!d) return;
+    state.status = d;
+    $('#sVersion').textContent = d.version || '—';
+    $('#sApp').textContent = d.app || '—';
+    $('#sUptime').textContent = fmtUptime(d.uptime_seconds);
+    $('#sDB').textContent = d.db_driver || '—';
+    $('#sPlatform').textContent = (d.go_version || '') + ' · ' + (d.num_cpu || '?') + ' CPU';
+    $('#sProviders').textContent = (d.movie_providers || 0) + ' movie · ' + (d.actor_providers || 0) + ' actor';
+
+    var card = $('#proxyCard');
+    card.className = 'proxy ' + (d.proxy_active ? 'on' : 'off');
+    $('#proxyValue').textContent = d.proxy_active ? (d.proxy || '已启用') : '直连';
+    $('#proxyMeta').textContent = d.proxy_active
+      ? '所有 provider 的请求都会经过这个代理；改系统代理后 10 秒内自动跟随。'
+      : '没有可用的代理设置，请求直接出网。FANZA / DMM 这类站点直连会被地区封锁。';
+
+  }
+
+  function loadProviders() {
+    return api('/v1/providers', { timeout: 10000 })
+      .then(function (r) {
+        var d = (r.body && r.body.data) || {};
+        var movie = d.movie_providers || {};
+        var actor = d.actor_providers || {};
+        state.providers.movie = Object.keys(movie).sort().map(function (k) { return { name: k, url: movie[k] }; });
+        state.providers.actor = Object.keys(actor).sort().map(function (k) { return { name: k, url: actor[k] }; });
+        $('#providerCount').textContent = state.providers.movie.length + ' movie · ' + state.providers.actor.length + ' actor';
+        $('#providerTagsHint').textContent = '· 点击可在源健康页单独探测';
+        var tags = $('#providerTags');
+        if (!state.providers.movie.length) {
+          tags.innerHTML = '<span class="hintline" style="margin:0">没有可用数据源</span>';
+        } else {
+          tags.innerHTML = state.providers.movie.map(function (p) {
+            return '<button class="tag" data-provider="' + esc(p.name) + '" title="' + esc(p.url || '') + '">' + esc(p.name) + '</button>';
+          }).join('');
+          $$('button[data-provider]', tags).forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              var name = btn.getAttribute('data-provider');
+              $('#probeQuery').value = ($('#q').value || '').trim() || $('#probeQuery').value || '';
+              switchView('providers');
+              toast('在「源健康」页填入番号后点击开始探测，可单独验证 ' + name, 3200);
+            });
+          });
+        }
+        renderProviderTable();
+      })
+      .catch(function () { /* 保持静默，搜索页仍然可用 */ });
+  }
+
+  /* ---------------- probe ---------------- */
+
+  function pool(items, limit, worker) {
+    var results = new Array(items.length);
+    var next = 0;
+    var n = Math.max(1, Math.min(limit || 1, items.length));
+    var runners = [];
+    for (var i = 0; i < n; i++) {
+      runners.push((function loop() {
+        if (next >= items.length) return Promise.resolve();
+        var idx = next++;
+        return Promise.resolve(worker(items[idx], idx)).then(function (v) {
+          results[idx] = v;
+          return loop();
+        });
+      })());
+    }
+    return Promise.all(runners).then(function () { return results; });
+  }
+
+  function probeOne(name, q) {
+    return api('/v1/movies/search?q=' + encodeURIComponent(q) + '&provider=' + encodeURIComponent(name), { timeout: 100000 })
+      .then(function (r) {
+        var items = (r.body && r.body.data) || [];
+        if (!Array.isArray(items)) items = [items];
+        return { name: name, ok: items.length > 0, ms: r.ms, items: items, error: items.length ? '' : '无结果' };
+      })
+      .catch(function (err) {
+        var msg = err.name === 'AbortError' ? '请求超时（>100s）' : err.message;
+        return { name: name, ok: false, ms: err.ms || null, items: [], error: msg, status: err.status };
+      });
+  }
+
+  function renderProbeRows(tbody, rows) {
+    tbody.innerHTML = rows.map(function (r) {
+      var first = r.items && r.items[0];
+      var detail = r.ok
+        ? '<div>' + esc(first.title || '(无标题)') + '</div>'
+        : '<div class="errtext">' + esc(r.error) + '</div>';
+      var sub = '';
+      if (r.ok && first) {
+        sub = '<span class="tag">' + esc(first.number || '') + '</span>';
+        if (first.provider && first.provider !== r.name) sub += ' <span class="tag prov">' + esc(first.provider) + '</span>';
+      }
+      return '<tr>' +
+        '<td class="name">' + esc(r.name) + '</td>' +
+        '<td><span class="stat"><span class="sdot ' + (r.ok ? 's-ok' : 's-err') + '"></span>' + (r.ok ? '正常' : '失败') + '</span></td>' +
+        '<td class="ms">' + fmtMs(r.ms) + '</td>' +
+        '<td class="cnt">' + (r.ok ? r.items.length : 0) + '</td>' +
+        '<td class="title">' + detail + ' ' + sub + '</td>' +
+        '<td><button class="mini" data-json="' + esc(r.name) + '">JSON</button></td>' +
+        '</tr>';
+    }).join('');
+    $$('button[data-json]', tbody).forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var name = btn.getAttribute('data-json');
+        var row = rows.find(function (x) { return x.name === name; });
+        openJson(row.name, row);
+      });
+    });
+  }
+
+  function summarize(rows, host) {
+    var ok = rows.filter(function (r) { return r.ok; }).length;
+    var fail = rows.length - ok;
+    var times = rows.filter(function (r) { return r.ms != null; }).map(function (r) { return r.ms; });
+    var total = times.reduce(function (a, b) { return a + b; }, 0);
+    var max = times.length ? Math.max.apply(null, times) : 0;
+    var min = times.length ? Math.min.apply(null, times) : 0;
+    host.innerHTML =
+      '<span class="chip ok">成功 <b>' + ok + '</b> / ' + rows.length + '</span>' +
+      (fail ? '<span class="chip err">失败 <b>' + fail + '</b></span>' : '') +
+      '<span class="chip">最快 <b>' + fmtMs(min) + '</b></span>' +
+      '<span class="chip">最慢 <b>' + fmtMs(max) + '</b></span>' +
+      '<span class="chip">累计 <b>' + fmtMs(total) + '</b></span>';
+    return { ok: ok, fail: fail };
+  }
+
+  /* ---------------- 翻译（顶部电池 + 自动翻译） ---------------- */
+
+  var trCache = {};
+  try { trCache = JSON.parse(localStorage.getItem('mt.trcache') || '{}') || {}; } catch (e) { trCache = {}; }
+
+  function trSave() {
+    try {
+      var keys = Object.keys(trCache);
+      if (keys.length > 900) {
+        keys.slice(0, keys.length - 900).forEach(function (k) { delete trCache[k]; });
+      }
+      localStorage.setItem('mt.trcache', JSON.stringify(trCache));
+    } catch (e) { /* 存储满了就只留内存缓存 */ }
+  }
+
+  // 日语标题里也全是汉字，只按汉字判断会漏翻；有假名就一定不是中文
+  function isChinese(s) {
+    if (/[\u3040-\u30ff]/.test(s)) return false;
+    return /[\u3400-\u9fff]/.test(s);
+  }
+
+  // 只翻真正需要翻的：非空、不是中文、确实有假名或拉丁字母
+  function needTranslate(texts) {
+    var out = [], seen = {};
+    (texts || []).forEach(function (t) {
+      t = String(t == null ? '' : t).trim();
+      if (!t || seen[t] || isChinese(t)) return;
+      if (!/[A-Za-z\u3040-\u30ff]/.test(t)) return;
+      seen[t] = true;
+      out.push(t);
+    });
+    return out;
+  }
+
+  function currentEngine() {
+    return (state.trConfig && state.trConfig.engine) ||
+      (state.status && state.status.translate && state.status.translate.engine) || 'baiduai';
+  }
+
+  // 解析一批结果：只要有译文就写入缓存；全军覆没时把引擎的原话抛出来，
+  // 否则界面上只会一直显示原文，看不到「密钥不对 / 额度用完」这种原因。
+  function translateChunk(texts, opts) {
+    opts = opts || {};
+    var engine = opts.engine || currentEngine();
+    return api('/v1/translate/batch?engine=' + encodeURIComponent(engine) + '&to=zh&from=auto',
+      { method: 'POST', body: { texts: texts }, timeout: 90000 })
+      .then(function (r) {
+        var items = (r.body && r.body.data && r.body.data.items) || [];
+        var ok = 0, firstErr = '';
+        items.forEach(function (it) {
+          if (it.error) { if (!firstErr) firstErr = it.error; return; }
+          if (it.translated_text) { trCache[it.source] = it.translated_text; ok++; }
+        });
+        if (ok) trSave();
+        if (!ok && items.length) {
+          throw new Error(engine + ' · ' + (firstErr || '没有返回译文'));
+        }
+        return (items[0] && items[0].translated_text) || '';
+      });
+  }
+
+  // 大批量按 40 条一批串行发送：后端每批有上限，串行也不会打爆额度
+  function translateBatch(texts, opts) {
+    opts = opts || {};
+    var todo = needTranslate(texts).filter(function (t) { return !trCache[t]; });
+    if (!todo.length) return Promise.resolve();
+    var chunks = [];
+    while (todo.length && chunks.length < 3) chunks.push(todo.splice(0, 40));
+    return chunks.reduce(function (p, chunk) {
+      return p.then(function () { return translateChunk(chunk, opts); });
+    }, Promise.resolve()).catch(function (err) {
+      if (opts.quiet) throw err;
+      toast('翻译失败：' + err.message, 6000);
+    });
+  }
+
+  function tr(text) {
+    return (text && trCache[String(text).trim()]) || '';
+  }
+
+  function autoTrOn() {
+    var el = $('#autoTranslate');
+    return !!(el && el.checked);
+  }
+
+  /* ---------------- 翻译引擎配置 ---------------- */
+
+  // 字段名就是后端引擎结构体的 json 标签，逗号里的 1 表示密钥类（输入框用密码样式）
+  var TR_ENGINES = {
+    baiduai: [['baidu-app-id', 'APP ID'], ['baidu-app-key', '密钥', 1], ['baidu-model-type', '模型 nmt / llm']],
+    baidu: [['baidu-app-id', 'APP ID'], ['baidu-app-key', '密钥', 1]],
+    deepl: [['deepl-api-key', 'Auth Key', 1], ['deepl-api-url', '接口地址（可选）']],
+    google: [['google-api-key', 'API Key', 1], ['google-api-url', '接口地址（可选）']],
+    openai: [['openai-api-key', 'API Key', 1], ['openai-api-url', '接口地址（可选）'], ['openai-model', '模型'], ['openai-prompt', '提示词（可选）']],
+    googlefree: []
+  };
+
+  function trEngineList() {
+    return Object.keys(TR_ENGINES);
+  }
+
+  function renderTrEngineSelect() {
+    var sel = $('#setTrEngine');
+    sel.innerHTML = trEngineList().map(function (e) {
+      return '<option value="' + esc(e) + '">' + esc(e) + '</option>';
+    }).join('');
+  }
+
+  // 按引擎铺字段输入框。密钥类后端只回打码值，所以放进 placeholder 当提示，
+  // 输入框留空就表示沿用已保存的那一个。
+  function renderTrFields(engine, values) {
+    values = values || {};
+    var list = TR_ENGINES[engine] || [];
+    var host = $('#setTrFields');
+    if (!list.length) {
+      host.innerHTML = '<div class="field-note">这个引擎不需要密钥，可直接测试。</div>';
+      return;
+    }
+    host.innerHTML = list.map(function (f) {
+      var saved = values[f[0]] || '';
+      var secret = !!f[2];
+      var ph = secret ? (saved ? '已保存 ' + saved + '，留空不改' : '必填') : (saved ? '' : '可选');
+      return '<label class="field"><span>' + esc(f[1]) + '</span>' +
+        '<input id="trf-' + esc(f[0]) + '" class="inp mono" spellcheck="false" autocomplete="off"' +
+        (secret ? ' type="password"' : '') +
+        ' placeholder="' + esc(ph) + '"' +
+        ' data-key="' + esc(f[0]) + '" value="' + esc(secret ? '' : saved) + '"></label>';
+    }).join('');
+  }
+
+  function trFormValues() {
+    var engine = $('#setTrEngine').value;
+    var fields = {};
+    $$('#setTrFields input[data-key]').forEach(function (el) {
+      var v = el.value.trim();
+      // 留空 = 不动已保存的值，这样密钥不会因为重开弹窗就被清掉
+      if (v) fields[el.getAttribute('data-key')] = v;
+    });
+    return { engine: engine, fields: fields };
+  }
+
+  function applyTranslateConfig(cfg) {
+    state.trConfig = cfg || { engine: '', fields: {} };
+    if (cfg && cfg.engine && $('#tEngine')) $('#tEngine').value = cfg.engine;
+
+    var has = cfg && cfg.fields && Object.keys(cfg.fields).length > 0;
+    var engine = (cfg && cfg.engine) || 'baiduai';
+    // 完整路径只放 title：弹窗里那行本来就窄，一行路径能把说明挤成三段
+    $('#setTrNote').textContent = !cfg ? '' :
+      (has || engine === 'googlefree' ? '密钥已保存' : '还没配置密钥，翻译会被引擎拒绝');
+    $('#setTrNote').title = (cfg && cfg.path) || '';
+  }
+
+  // 不知道配置的后端（老版本）不拦人，只在确定没密钥时提醒
+  function trConfigured() {
+    var cfg = state.trConfig;
+    if (!cfg) return true;
+    if (cfg.engine === 'googlefree') return true;
+    return !!(cfg.fields && Object.keys(cfg.fields).length);
+  }
+
+  function loadTranslateConfig() {
+    return api('/v1/translate/config', { timeout: 8000 }).then(function (r) {
+      applyTranslateConfig((r.body && r.body.data) || {});
+      return state.trConfig;
+    }).catch(function (err) {
+      // 老版本后端没有这个接口，别让整页报错
+      state.trConfig = null;
+      $('#setTrNote').textContent = err && err.status === 404
+        ? '这个后端的版本较旧，没有翻译密钥配置接口'
+        : '读取翻译配置失败：' + ((err && err.message) || '未知错误');
+      return null;
+    });
+  }
+
+  function saveTranslateConfig() {
+    var body = trFormValues();
+    // 没动过就别发请求：只改后端地址时不该冒出「翻译设置没保存」
+    if (state.trConfig && body.engine === state.trConfig.engine &&
+        !Object.keys(body.fields).length) {
+      return Promise.resolve(state.trConfig);
+    }
+    if (!body.engine) return Promise.resolve(null);
+    return api('/v1/translate/config', { method: 'PUT', body: body, timeout: 10000 })
+      .then(function (r) {
+        applyTranslateConfig((r.body && r.body.data) || {});
+        return state.trConfig;
+      });
+  }
+
+  // 用已保存的密钥翻一句，成功就说明整条链路是通的
+  function testTranslate() {
+    var btn = $('#setTrTest');
+    var engine = $('#setTrEngine').value;
+    btn.disabled = true;
+    return translateChunk(['テスト翻訳です'], { engine: engine })
+      .then(function (out) {
+        toast('翻译正常：' + (out || '(空结果)'), 4200);
+      })
+      .catch(function (err) {
+        toast('翻译失败：' + err.message, 6000);
+      })
+      .finally(function () { btn.disabled = false; });
+  }
+
+  /* ---------------- results ---------------- */
+
+  function groupResults(items) {
+    var map = {};
+    var order = [];
+    items.forEach(function (it) {
+      var key = (it.number || it.id || '').toUpperCase();
+      if (!map[key]) { map[key] = { number: it.number || it.id || '', items: [] }; order.push(key); }
+      map[key].items.push(it);
+    });
+    return order.map(function (k) { return map[k]; });
+  }
+
+  function coverScore(it) {
+    var url = it.cover_url || '';
+    if (!url) return it.thumb_url ? 0.5 : 0;
+    // DMM 的 ps.jpg 是带多张样张的拼图，不适合当封面
+    if (/ps\.jpg/i.test(url)) return 0.8;
+    return 2;
+  }
+
+  function coverFor(it) {
+    if (it.cover_url) return it.cover_url;
+    if (it.thumb_url) return it.thumb_url;
+    if (it.provider && it.id) return state.base.replace(/\/+$/, '') + '/v1/images/thumb/' + encodeURIComponent(it.provider) + '/' + encodeURIComponent(it.id);
+    return '';
+  }
+
+  function renderResults(items) {
+    var host = $('#results');
+    if (!items || !items.length) {
+      host.innerHTML = '<div class="empty">没有结果。若是 DMM 系列站点，先确认状态页的出站代理是「已启用」。</div>';
+      return;
+    }
+    var groups = groupResults(items);
+    host.innerHTML = groups.map(function (g) {
+      // 优先用真正的封面（ps.jpg 是样张拼图），否则回退到第一条
+      var rep = g.items.slice().sort(function (a, b) { return coverScore(b) - coverScore(a); })[0];
+      var provs = {};
+      g.items.forEach(function (x) { provs[x.provider] = (provs[x.provider] || 0) + 1; });
+      var provLine = Object.keys(provs).map(function (p) {
+        return provs[p] > 1 ? p + ' ×' + provs[p] : p;
+      }).join(' · ');
+
+      var actors = [];
+      var actorMap = {}, actorOrder = [];
+      g.items.forEach(function (x) {
+        (x.actors || []).forEach(function (a) {
+          if (!a) return;
+          // 同一个人在不同源里的写法可能带括号注音，归一化后只留一个
+          var key = String(a).replace(/[（(].*?[)）]/g, '').trim().toLowerCase();
+          if (!key) return;
+          if (!(key in actorMap)) { actorMap[key] = a; actorOrder.push(key); }
+          else if (a.length < actorMap[key].length) { actorMap[key] = a; }
+        });
+      });
+      actors = actorOrder.map(function (k) { return actorMap[k]; });
+      var actorTags = actors.slice(0, 8).map(function (a) {
+        return '<span class="tag" data-tr="' + esc(a) + '" title="' + esc(a) + '">' + esc(tr(a) || a) + '</span>';
+      }).join('') +
+        (actors.length > 8 ? '<span class="tag">+' + (actors.length - 8) + '</span>' : '');
+
+      var cover = coverFor(rep);
+      var title = tr(rep.title) || rep.title || '(无标题)';
+      return '<article class="result">' +
+        (cover ? '<img class="cover" src="' + esc(cover) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility=\'hidden\'">' : '<div class="cover"></div>') +
+        '<div class="body">' +
+          '<div class="rt" data-tr="' + esc(rep.title || '') + '">' + esc(title) + '</div>' +
+          '<div class="rsub"><span>' + esc(g.number) + '</span>' +
+            (rep.release_date ? '<i>·</i><span>' + esc(autoTrOn() ? fullDate(rep.release_date) : shortDate(rep.release_date)) + '</span>' : '') +
+            (rep.score ? '<i>·</i><span>评分 ' + esc(rep.score) + '</span>' : '') +
+          '</div>' +
+          '<div class="tags">' + Object.keys(provs).map(function (p) {
+            return '<span class="tag prov">' + esc(p) + '</span>';
+          }).join('') + actorTags + '</div>' +
+          '<div class="rsub" style="margin-top:2px">' + esc(provLine) + '</div>' +
+          '<div class="acts">' +
+            g.items.map(function (x, i) {
+              return '<button class="mini" data-detail="' + esc(g.number) + ':' + i + '">' + esc(x.provider) + ' 详情</button>';
+            }).join('') +
+            (rep.homepage ? '<a class="mini" href="' + esc(rep.homepage) + '" target="_blank" rel="noreferrer noopener">站点</a>' : '') +
+          '</div>' +
+        '</div>' +
+      '</article>';
+    }).join('');
+
+    $$('button[data-detail]', host).forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var parts = btn.getAttribute('data-detail').split(':');
+        var g = groups.find(function (x) { return x.number === parts[0]; });
+        if (!g) return;
+        var item = g.items[Number(parts[1])];
+        openDetail(item);
+      });
+    });
+
+    if (autoTrOn()) autoTranslateResults(groups);
+  }
+
+  function applyTranslations(root) {
+    if (!root) return;
+    $$('[data-tr]', root).forEach(function (el) {
+      var src = el.getAttribute('data-tr');
+      var out = trCache[src];
+      if (!out) return;
+      el.textContent = out;
+      el.title = src;
+    });
+  }
+
+  // 搜索完成后按开关决定是否本地化：标题、演员名，顺带把日期写成中文格式
+  function autoTranslateResults(groups) {
+    // 没密钥时引擎只会返回错误，先把话说清楚，别让人以为开关坏了
+    if (!trConfigured()) {
+      toast('自动翻译已勾选，但还没填翻译引擎密钥：点右上角齿轮填入后重试', 6000);
+      return;
+    }
+    var texts = [];
+    groups.slice(0, 10).forEach(function (g) {
+      var rep = g.items.slice().sort(function (a, b) { return coverScore(b) - coverScore(a); })[0];
+      if (rep && rep.title) texts.push(rep.title);
+      g.items.forEach(function (it) {
+        (it.actors || []).forEach(function (a) { texts.push(a); });
+      });
+    });
+    if (!texts.length) return;
+    translateBatch(texts).then(function () {
+      applyTranslations($('#results'));
+    });
+  }
+
+  function translateSheet(d) {
+    if (!autoTrOn() || !d) return;
+    var texts = [d.title, d.summary, d.series, d.maker, d.label, d.director].filter(Boolean);
+    (d.actors || []).forEach(function (a) { texts.push(a); });
+    (d.genres || []).forEach(function (g) { texts.push(g); });
+    translateBatch(texts).then(function () {
+      var fr = $('#modalFriendly');
+      if (!fr.innerHTML) return; // 用户已经关掉或换了别的详情
+      var dd = {};
+      Object.keys(d).forEach(function (k) { dd[k] = d[k]; });
+      if (tr(d.title)) dd.title = tr(d.title);
+      if (tr(d.summary)) dd.summary = tr(d.summary);
+      if (tr(d.series)) dd.series = tr(d.series);
+      if (tr(d.maker)) dd.maker = tr(d.maker);
+      dd.actors = (d.actors || []).map(function (a) { return tr(a) || a; });
+      dd.genres = (d.genres || []).map(function (a) { return tr(a) || a; });
+      fr.innerHTML = renderMovieSheet(dd);
+      $('#modalTitle').textContent = (dd.number || dd.id || '') + ' · ' + (dd.provider || '');
+    });
+  }
+
+  function thumbFor(r) {
+    if (!r || !r.provider || !r.id) return '';
+    return state.base.replace(/\/+$/, '') + '/v1/images/thumb/' +
+      encodeURIComponent(r.provider) + '/' + encodeURIComponent(r.id);
+  }
+
+  function fullDate(v) {
+    if (!v) return '';
+    var s = String(v).slice(0, 10);
+    var m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return s;
+    return m[1] + '年' + Number(m[2]) + '月' + Number(m[3]) + '日';
+  }
+
+  function tagHtml(list, cls) {
+    return (list || []).filter(Boolean).map(function (a) {
+      return '<span class="tag ' + (cls || '') + '">' + esc(a) + '</span>';
+    }).join('');
+  }
+
+  var sheetRaw = null;
+
+  // 友好视图与原始 JSON 共用同一个弹窗：默认给人看的，需要核对时才切 JSON
+  function showSheet(title, html, raw) {
+    sheetRaw = raw || null;
+    $('#modalTitle').textContent = title;
+    var fr = $('#modalFriendly');
+    fr.innerHTML = html;
+    fr.hidden = !html;
+    var js = $('#modalJson');
+    js.hidden = true;
+    js.textContent = '';
+    $('#modalRaw').hidden = !raw;
+    $('#modal').classList.add('show');
+  }
+
+  function toggleRaw(btn) {
+    var js = $('#modalJson');
+    var fr = $('#modalFriendly');
+    if (!js.hidden) {
+      js.hidden = true;
+      fr.hidden = !fr.innerHTML;
+      btn.textContent = '原始 JSON';
+      return;
+    }
+    if (!sheetRaw) return;
+    fr.hidden = true;
+    js.hidden = false;
+    js.textContent = JSON.stringify(sheetRaw, null, 2);
+    btn.textContent = '友好视图';
+  }
+
+  // 一次搜索的完整视图：结果卡片 + 每个来源的表现
+  function openSession(s) {
+    var b = sessionBadge(s);
+    var html = '<div class="sheet-h">' +
+      '<span class="sheet-q">' + esc(s.q) + '</span>' +
+      '<span class="sv-badge ' + b.cls + '">' + b.text + '</span>' +
+      '<span class="sheet-sum">' + esc([
+        s.items ? s.items + ' 条结果' : '无结果',
+        (s.providers || []).length + ' 个来源',
+        '合计 ' + fmtMs(s.ms),
+        fmtFull(s.ts_ms)
+      ].join(' · ')) + '</span>' +
+    '</div>';
+
+    if (s.error) {
+      html += '<div class="mv-sum" style="border-color:rgba(248,81,73,.35);color:#ff9a94">' + esc(s.error) + '</div>';
+    }
+
+    if (s.results && s.results.length) {
+      html += '<div class="sheet-sect"><div class="st">找到的作品</div><div class="hits">';
+      s.results.forEach(function (r, i) {
+        var img = thumbFor(r);
+        html += '<div class="hit" data-hit="' + i + '" title="查看 ' + esc(r.provider) + ' 的完整详情">' +
+          (img ? '<img src="' + esc(img) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility=\'hidden\'">' : '') +
+          '<div class="hbody">' +
+            '<div class="ht">' + esc(r.title || '(无标题)') + '</div>' +
+            '<div class="hn">' + esc(r.number || r.id) + (r.release ? ' · ' + esc(shortDate(r.release)) : '') + '</div>' +
+            '<div class="hp">' + esc(r.provider) + (r.score ? ' · ' + r.score : '') + '</div>' +
+          '</div>' +
+        '</div>';
+      });
+      html += '</div></div>';
+    }
+
+    if (s.sources && s.sources.length) {
+      html += '<div class="sheet-sect"><div class="st">来源 ' + s.sources.length + '</div><div class="srclist">';
+      s.sources.forEach(function (src) {
+        var ok = !src.status || src.status < 400;
+        html += '<div class="src">' +
+          '<span class="sn">' + esc(src.provider) + '</span>' +
+          '<span class="sc">' + (ok ? '正常' : 'HTTP ' + src.status) + '</span>' +
+          '<span class="sm">' + (src.items ? src.items + ' 条' : '—') +
+            (src.ms ? ' · ' + fmtMs(src.ms) : '') + '</span>' +
+          '<span class="se">' + esc(src.error || '') + '</span>' +
+        '</div>';
+      });
+      html += '</div></div>';
+    }
+
+    showSheet('搜索 ' + s.q, html, s);
+
+    $$('[data-hit]', $('#modalFriendly')).forEach(function (el) {
+      el.addEventListener('click', function () {
+        var r = s.results[Number(el.getAttribute('data-hit'))];
+        if (r) openDetail({ provider: r.provider, id: r.id });
+      });
+    });
+  }
+
+  // 优先走服务端代理：provider 的原始封面地址大多带防盗链，浏览器直连会 403
+  function movieCover(d) {
+    if (d.provider && d.id) return thumbFor(d);
+    return d.cover_url || d.thumb_url || '';
+  }
+
+  // 影片详情：封面 + 关键字段 + 简介，而不是一屏 JSON
+  function renderMovieSheet(d) {
+    var rows = [];
+    var push = function (k, v) { if (v) rows.push('<dt>' + esc(k) + '</dt><dd>' + v + '</dd>'); };
+    push('番号', '<span class="mono">' + esc(d.number || d.id || '') + '</span>');
+    if (d.release_date) push('发售', esc(fullDate(d.release_date)));
+    if (d.runtime) push('时长', d.runtime + ' 分钟');
+    if (d.score) push('评分', '<b>' + esc(d.score) + '</b>');
+    if (d.maker) push('制作商', esc(d.maker));
+    if (d.label) push('发行商', esc(d.label));
+    if (d.series) push('系列', esc(d.series));
+    if (d.director) push('导演', esc(d.director));
+    if (d.actors && d.actors.length) push('演员', tagHtml(d.actors));
+    if (d.genres && d.genres.length) push('类别', tagHtml(d.genres, 'prov'));
+
+    var cover = movieCover(d);
+    var html = '<div class="mv">' +
+      (cover ? '<img class="mv-cover" src="' + esc(cover) + '" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility=\'hidden\'">' : '<div class="mv-cover" style="height:240px"></div>') +
+      '<div>' +
+        '<div class="mv-title">' + esc(d.title || '(无标题)') + '</div>' +
+        '<div class="mv-sub"><span>' + esc(d.provider || '') + '</span><span>' + esc(d.id || '') + '</span>' +
+          (d.release_date ? '<span>' + esc(fullDate(d.release_date)) + '</span>' : '') + '</div>' +
+        '<dl class="mv-rows">' + rows.join('') + '</dl>' +
+      '</div>' +
+    '</div>';
+
+    if (d.summary) html += '<div class="mv-sum">' + esc(d.summary) + '</div>';
+
+    var links = [];
+    if (d.homepage) links.push('<a class="mini" href="' + esc(d.homepage) + '" target="_blank" rel="noreferrer noopener">打开来源页面</a>');
+    if (d.preview_video_url) links.push('<a class="mini" href="' + esc(d.preview_video_url) + '" target="_blank" rel="noreferrer noopener">预览视频</a>');
+    if (links.length) html += '<div class="mv-links">' + links.join('') + '</div>';
+    return html;
+  }
+
+  function openDetail(item) {
+    var provider = item.provider || '';
+    var id = item.id || '';
+    showSheet(provider + ' / ' + id,
+      '<div class="hintline" style="margin:0"><span class="spinner"></span> 正在从 ' + esc(provider) + ' 读取详情…</div>', null);
+
+    api('/v1/movies/' + encodeURIComponent(provider) + '/' + encodeURIComponent(id), { timeout: 60000 })
+      .then(function (r) {
+        var d = (r.body && r.body.data) || r.body || {};
+        showSheet((d.number || id) + ' · ' + provider, renderMovieSheet(d), d);
+        translateSheet(d);
+      })
+      .catch(function (err) {
+        showSheet(provider + ' / ' + id,
+          '<div class="mv-sum" style="border-color:rgba(248,81,73,.35);color:#ff9a94">加载失败：' + esc(err.message) + '</div>', null);
+      });
+  }
+
+  function openJson(title, data) {
+    sheetRaw = null;
+    $('#modalTitle').textContent = title;
+    var fr = $('#modalFriendly');
+    fr.innerHTML = '';
+    fr.hidden = true;
+    $('#modalJson').hidden = false;
+    $('#modalJson').textContent = JSON.stringify(data, null, 2);
+    $('#modalRaw').hidden = true;
+    $('#modal').classList.add('show');
+  }
+
+  function openModal(title, text) {
+    openJson(title, text);
+  }
+
+  /* ---------------- search ---------------- */
+
+  function doSearch() {
+    var q = ($('#q').value || '').trim();
+    if (!q) { toast('请输入番号或 URL'); return; }
+    $('#probeQuery').value = q;
+
+    var mode = state.mode;
+    $('#searchSummary').innerHTML = '';
+    $('#probeWrap').style.display = 'none';
+    $('#results').innerHTML = '';
+
+    if (mode === 'all') return searchAll(q);
+    return searchProbe(q);
+  }
+
+  function searchAll(q) {
+    var btn = $('#searchBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+    $('#searchSummary').innerHTML = '<span class="chip warn">聚合搜索中 <b>' + esc(q) + '</b></span>';
+    return api('/v1/movies/search?q=' + encodeURIComponent(q), { timeout: 180000 })
+      .then(function (r) {
+        var items = (r.body && r.body.data) || [];
+        if (!Array.isArray(items)) items = [items];
+        var groups = groupResults(items);
+        var provs = {};
+        items.forEach(function (x) { provs[x.provider] = 1; });
+        $('#searchSummary').innerHTML =
+          '<span class="chip ok">结果 <b>' + groups.length + '</b> 部</span>' +
+          '<span class="chip">来源 <b>' + Object.keys(provs).length + '</b> 个</span>' +
+          '<span class="chip">耗时 <b>' + fmtMs(r.ms) + '</b></span>';
+        state.lastItems = items;
+        renderResults(items);
+      })
+      .catch(function (err) {
+        $('#searchSummary').innerHTML = '<span class="chip err">失败 <b>' + esc(err.message) + '</b></span>';
+        $('#results').innerHTML = '<div class="empty">' + esc(err.message) + '</div>';
+      })
+      .finally(function () { btn.disabled = false; btn.textContent = '搜索'; });
+  }
+
+  function searchProbe(q) {
+    var names = state.providers.movie.map(function (p) { return p.name; });
+    if (!names.length) return loadProviders().then(function () { return searchProbe(q); });
+    var limit = Number($('#concurrency').value) || 6;
+    var btn = $('#searchBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+    $('#probeWrap').style.display = '';
+    $('#probeBody').innerHTML = '';
+    $('#searchSummary').innerHTML = '<span class="chip warn">探测 <b>' + names.length + '</b> 个源，并发 ' + limit + '</span>';
+    var started = performance.now();
+    return pool(names, limit, function (name) { return probeOne(name, q); })
+      .then(function (rows) {
+        rows.sort(function (a, b) { return (b.ok ? 1 : 0) - (a.ok ? 1 : 0) || (a.ms || 0) - (b.ms || 0); });
+        renderProbeRows($('#probeBody'), rows);
+        var s = summarize(rows, $('#searchSummary'));
+        var all = [];
+        rows.forEach(function (r) { all = all.concat(r.items); });
+        state.lastItems = all;
+        if (all.length) renderResults(all);
+        else $('#results').innerHTML = '<div class="empty">所有源都没有返回结果。</div>';
+        toast('探测完成：成功 ' + s.ok + ' / ' + rows.length + '，用时 ' + fmtMs(performance.now() - started), 4000);
+      })
+      .finally(function () { btn.disabled = false; btn.textContent = '搜索'; });
+  }
+
+  /* ---------------- providers view ---------------- */
+
+  function renderProviderTable() {
+    var rows = state.providers.movie.map(function (p) {
+      return '<tr data-name="' + esc(p.name) + '">' +
+        '<td class="name">' + esc(p.name) + '</td>' +
+        '<td><span class="stat"><span class="sdot s-idle"></span>未探测</span></td>' +
+        '<td class="ms">—</td><td class="cnt">—</td>' +
+        '<td class="title"><span class="tag" title="' + esc(p.url || '') + '">' + esc(hostOf(p.url)) + '</span></td>' +
+        '<td></td></tr>';
+    }).join('');
+
+    var actorRows = state.providers.actor.map(function (p) {
+      return '<tr><td class="name" style="color:var(--faint)">' + esc(p.name) + '</td>' +
+        '<td><span class="stat"><span class="sdot s-idle"></span>演员源</span></td>' +
+        '<td class="ms">—</td><td class="cnt">—</td>' +
+        '<td class="title"><span class="tag" title="' + esc(p.url || '') + '">' + esc(hostOf(p.url)) + '</span></td><td></td></tr>';
+    }).join('');
+
+    $('#providerBody').innerHTML = rows + actorRows;
+  }
+
+  function probeAllProviders() {
+    var q = ($('#probeQuery').value || '').trim();
+    if (!q) { toast('请先填入用于探测的番号'); return; }
+    var names = state.providers.movie.map(function (p) { return p.name; });
+    if (!names.length) { toast('还没有拿到源列表'); return; }
+    var limit = Number($('#probeConcurrency').value) || 6;
+    var btn = $('#probeAllBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+    $('#probeAllSummary').innerHTML = '<span class="chip warn">探测中 <b>' + names.length + '</b> 个源，并发 ' + limit + '</span>';
+    var started = performance.now();
+
+    return pool(names, limit, function (name) { return probeOne(name, q); })
+      .then(function (rows) {
+        rows.sort(function (a, b) { return (b.ok ? 1 : 0) - (a.ok ? 1 : 0) || (a.ms || 0) - (b.ms || 0); });
+        renderProbeRows($('#providerBody'), rows);
+        summarize(rows, $('#probeAllSummary'));
+        toast('全量探测完成，总用时 ' + fmtMs(performance.now() - started), 4000);
+      })
+      .finally(function () { btn.disabled = false; btn.textContent = '开始探测'; });
+  }
+
+  /* ---------------- translate ---------------- */
+
+  function doTranslate() {
+    var text = ($('#tText').value || '').trim();
+    if (!text) { toast('请输入要翻译的文本'); return; }
+    var params = new URLSearchParams();
+    params.set('q', text);
+    params.set('from', ($('#tFrom').value || 'auto').trim());
+    params.set('to', ($('#tTo').value || 'zh').trim());
+    params.set('engine', $('#tEngine').value);
+
+    var extra = ($('#tExtra').value || '').trim();
+    if (extra) {
+      extra.split(',').forEach(function (pair) {
+        var i = pair.indexOf('=');
+        if (i > 0) params.set(pair.slice(0, i).trim(), pair.slice(i + 1).trim());
+      });
+    }
+
+    var btn = $('#translateBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+    $('#tOut').textContent = '';
+    $('#tMeta').textContent = '翻译中…';
+
+    return api('/v1/translate?' + params.toString(), { timeout: 60000 })
+      .then(function (r) {
+        var d = (r.body && r.body.data) || {};
+        $('#tOut').textContent = d.translated_text || '';
+        $('#tMeta').textContent = '引擎 ' + $('#tEngine').value + ' · ' + d.from + ' → ' + d.to +
+          ' · ' + fmtMs(r.ms) + ' · ' + text.length + ' 字符';
+      })
+      .catch(function (err) {
+        $('#tOut').textContent = '';
+        $('#tMeta').innerHTML = '<span class="errtext">' + esc(err.message) + '</span>';
+      })
+      .finally(function () { btn.disabled = false; btn.textContent = '翻译'; });
+  }
+
+  /* ---------------- wiring ---------------- */
+
+  function switchView(name, fromHash) {
+    $$('.nav-item').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-view') === name); });
+    $$('.view').forEach(function (v) { v.classList.toggle('active', v.id === 'view-' + name); });
+    try { localStorage.setItem('mt.view', name); } catch (e) {}
+    if (!fromHash) {
+      try { history.replaceState(null, '', '#' + name); } catch (e) {}
+    }
+    if (name === 'status' && state.status) applyStatus(state.status);
+    if (name === 'status') renderRecentSessions();
+    if (name === 'logs') {
+      renderLogStats();
+      renderLogTable();
+      syncLogs(true);
+    }
+  }
+
+  function init() {
+    // 默认地址：从 /ui 打开时同源，从 file:// 打开时指向本机 8080
+    var savedBase = null, savedToken = null, savedView = null, savedAutoTr = null;
+    try {
+      savedBase = localStorage.getItem('mt.base');
+      savedToken = localStorage.getItem('mt.token');
+      savedView = localStorage.getItem('mt.view');
+      savedAutoTr = localStorage.getItem('mt.autoTr');
+    } catch (e) {}
+
+    state.base = savedBase || (location.protocol === 'file:' ? 'http://127.0.0.1:8080' : location.origin);
+    state.token = savedToken || '';
+    $('#backendLabel').textContent = hostOf(state.base) || '—';
+    if (savedAutoTr === '1') $('#autoTranslate').checked = true;
+    // 上次搜的番号不写回输入框：全新打开就该是空的，避免看起来像预设示例
+
+    $('#refreshStatus').addEventListener('click', connect);
+
+    // 设置弹窗
+    $('#openSettings').addEventListener('click', openSettings);
+    $('#settingsClose').addEventListener('click', closeSettings);
+    $('#setCancel').addEventListener('click', closeSettings);
+    $('#setConnect').addEventListener('click', submitSettings);
+    $('#setBase').addEventListener('keydown', function (e) { if (e.key === 'Enter') submitSettings(); });
+    $('#setToken').addEventListener('input', function () { tokenTouched = true; tokenCleared = false; });
+    $('#setClearToken').addEventListener('click', function () {
+      $('#setToken').value = '';
+      tokenTouched = true;
+      tokenCleared = true;
+      toast('点连接后 token 会被清除');
+    });
+
+    // 翻译引擎：换引擎就换字段，测试前先保存，测的就是真实生效的配置
+    $('#setTrEngine').addEventListener('change', function () {
+      renderTrFields(this.value, (state.trConfig && state.trConfig.fields) || {});
+    });
+    $('#setTrTest').addEventListener('click', function () {
+      saveTranslateConfig().then(testTranslate).catch(function (err) {
+        toast('翻译设置没保存：' + err.message, 5200);
+      });
+    });
+    $('#settings').addEventListener('click', function (e) { if (e.target === $('#settings')) closeSettings(); });
+
+    // 本机服务（面板模式才显示）
+    $('#svcStart').addEventListener('click', function () { svcAction('start', this); });
+    $('#svcStop').addEventListener('click', function () { svcAction('stop', this); });
+    $('#svcRestart').addEventListener('click', function () { svcAction('restart', this); });
+    $('#svcExit').addEventListener('click', function () {
+      panelPost('/panel/exit').then(function () {
+        toast('面板与服务正在退出…', 6000);
+        $('#svcBox').hidden = true;
+      }).catch(function (err) { toast('退出失败：' + err.message, 4600); });
+    });
+
+    // 日志页
+    $('#gotoLogs').addEventListener('click', function () { switchView('logs'); });
+    $$('#logSeg button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        state.logLevel = b.getAttribute('data-lv');
+        $$('#logSeg button').forEach(function (x) { x.classList.toggle('on', x === b); });
+        renderLogTable();
+      });
+    });
+    $('#logFilter').addEventListener('input', function () { renderLogTable(); });
+    $('#logRefresh').addEventListener('click', function () { syncLogs(true); });
+    $('#logClear').addEventListener('click', clearLogs);
+
+    $$('.nav-item').forEach(function (b) {
+      b.addEventListener('click', function () { switchView(b.getAttribute('data-view')); });
+    });
+
+    $$('#modeSeg button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        state.mode = b.getAttribute('data-mode');
+        $$('#modeSeg button').forEach(function (x) { x.classList.toggle('on', x === b); });
+      });
+    });
+
+    $('#searchBtn').addEventListener('click', doSearch);
+    $('#q').addEventListener('keydown', function (e) { if (e.key === 'Enter') doSearch(); });
+    $('#probeAllBtn').addEventListener('click', probeAllProviders);
+    $('#probeQuery').addEventListener('keydown', function (e) { if (e.key === 'Enter') probeAllProviders(); });
+    $('#translateBtn').addEventListener('click', doTranslate);
+
+    // 自动翻译：关掉只是不自动调，已缓存的译文仍在本地，重开立刻生效
+    $('#autoTranslate').addEventListener('change', function () {
+      try { localStorage.setItem('mt.autoTr', this.checked ? '1' : '0'); } catch (e) {}
+      // 开着却没密钥时提醒一次，省得以为翻译坏了
+      if (this.checked && !trConfigured()) {
+        toast('还没填翻译引擎密钥：点右上角齿轮填入 APP ID 与密钥', 6000);
+        openSettings();
+        return;
+      }
+      if (state.lastItems) renderResults(state.lastItems);
+    });
+    $('#modalRaw').addEventListener('click', function () { toggleRaw(this); });
+
+    $('#modalClose').addEventListener('click', function () { $('#modal').classList.remove('show'); });
+    $('#modal').addEventListener('click', function (e) { if (e.target === $('#modal')) $('#modal').classList.remove('show'); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        $('#modal').classList.remove('show');
+        closeSettings();
+      }
+    });
+
+    var hashView = (location.hash || '').replace(/^#/, '');
+    var pendingSettings = hashView === 'settings';
+    switchView(pendingSettings ? 'status' : (hashView || savedView || 'status'), true);
+
+    // /ui?q=<番号>&mode=probe 可直接跑一次查询，方便把诊断链接发给别人
+    var params = {};
+    try {
+      new URLSearchParams(location.search).forEach(function (v, k) { params[k] = v; });
+    } catch (e) {}
+    var autoQ = params.q || '';
+    if (autoQ) {
+      $('#q').value = autoQ;
+      $('#probeQuery').value = autoQ;
+      if (params.mode === 'probe') {
+        state.mode = 'probe';
+        $$('#modeSeg button').forEach(function (x) {
+          x.classList.toggle('on', x.getAttribute('data-mode') === 'probe');
+        });
+      }
+      if (params.concurrency) $('#concurrency').value = params.concurrency;
+      // &tr=1 / &tr=0：链接里直接带上自动翻译的开关，省得每次手点
+      if (params.tr === '1' || params.tr === '0') {
+        $('#autoTranslate').checked = params.tr === '1';
+      }
+    }
+
+    window.addEventListener('hashchange', function () {
+      var h = (location.hash || '').replace(/^#/, '');
+      if (h === 'settings') { openSettings(); return; }
+      switchView(h || 'status', true);
+    });
+
+    detectPanel().then(function () {
+      if (pendingSettings) openSettings();
+      return connect();
+    }).then(function (ok) {
+      if (ok && autoQ) doSearch();
+    });
+
+    // 面板模式：2.5 秒刷新服务状态，服务起来后自动重连
+    setInterval(function () { if (panelMode) refreshPanel(); }, 2500);
+
+    // 电池在顶栏常驻，所以状态接口不管在哪个页面都定时拉一次
+    setInterval(function () {
+      if (!$('#connDot').classList.contains('on')) return;
+      api('/v1/status', { timeout: 8000 }).then(function (r) { applyStatus(r.body.data); }).catch(function () {
+        if ($('#view-status').classList.contains('active')) setDot('off', '连接断开');
+      });
+    }, 10000);
+
+    // 日志跟随：只在这两页轮询，别在后台白烧请求
+    setInterval(function () {
+      if (!$('#logTail').checked) return;
+      if (!$('#connDot').classList.contains('on')) return;
+      var onLogs = $('#view-logs').classList.contains('active');
+      var onStatus = $('#view-status').classList.contains('active');
+      if (onLogs || onStatus) syncLogs(false);
+    }, 3000);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+</body>
+</html>

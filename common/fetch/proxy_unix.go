@@ -2,19 +2,14 @@
 
 package fetch
 
-import "os"
-
 // platformProxy follows the conventional proxy environment variables on hosts
 // without a system-wide proxy store.
-func platformProxy() string {
-	for _, name := range []string{
-		"HTTPS_PROXY", "https_proxy",
-		"HTTP_PROXY", "http_proxy",
-		"ALL_PROXY", "all_proxy",
-	} {
-		if v := os.Getenv(name); v != "" {
-			return v
-		}
+func platformProxy() (string, string) {
+	if raw, src := envProxy(); raw != "" {
+		return raw, src
 	}
-	return ""
+	return "", "direct (no proxy environment variable)"
 }
+
+// platformBypass follows NO_PROXY.
+func platformBypass() []string { return envBypass() }

@@ -15,6 +15,7 @@ import (
 	"golang.org/x/text/language"
 
 	"github.com/metatube-community/metatube-sdk-go/collection/sets"
+	"github.com/metatube-community/metatube-sdk-go/common/fetch"
 	"github.com/metatube-community/metatube-sdk-go/common/parser"
 	"github.com/metatube-community/metatube-sdk-go/model"
 	"github.com/metatube-community/metatube-sdk-go/provider"
@@ -47,7 +48,7 @@ func New() *TokyoHot {
 		language.Japanese,
 		// Temporary workaround for unknown CA issue.
 		scraper.WithTransport(&http.Transport{
-			Proxy:                 http.DefaultTransport.(*http.Transport).Proxy,
+			Proxy:                 fetch.Proxy(),
 			DialContext:           http.DefaultTransport.(*http.Transport).DialContext,
 			ForceAttemptHTTP2:     http.DefaultTransport.(*http.Transport).ForceAttemptHTTP2,
 			MaxIdleConns:          http.DefaultTransport.(*http.Transport).MaxIdleConns,

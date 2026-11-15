@@ -21,13 +21,14 @@ func (e *Engine) initLogger() {
 }
 
 func (e *Engine) initFetcher() {
-	// Resolve the proxy once so the log reflects the setting actually used.
-	fetch.Proxy()
-	if proxy := fetch.ProxyURL(); proxy != "" {
-		e.logger.Printf("Outbound proxy enabled: %s", proxy)
-	} else {
-		e.logger.Printf("Outbound proxy: direct")
-	}
+	// colly-based providers use http.DefaultTransport, so it has to follow the
+	// same decision as this package's own clients.
+	fetch.InstallDefaultTransport()
+	// The outbound proxy follows the system configuration, so the decision is
+	// re-evaluated periodically: report the state at startup and every later
+	// transition, which is what makes "I switched my proxy" visible in the log.
+	fetch.SetChangeReporter(func(msg string) { e.logger.Print(msg) })
+	e.logger.Printf("Outbound proxy: %s", fetch.Describe())
 	e.fetcher = fetch.Default(&fetch.Config{Timeout: e.timeout})
 }
 

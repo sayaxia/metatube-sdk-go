@@ -86,13 +86,11 @@ func Default(cfg *Config) *Fetcher {
 	}
 	if cfg.Transport != nil {
 		c.HTTPClient.Transport = cfg.Transport
-	} else if proxy := Proxy(); proxy != nil {
-		// cleanhttp deliberately leaves Transport.Proxy unset, so the proxy
-		// selection has to be wired in here; see proxy.go for the order in
-		// which MT_PROXY_URL and the system proxy are resolved.
-		if transport, ok := c.HTTPClient.Transport.(*http.Transport); ok {
-			transport.Proxy = proxy
-		}
+	} else if transport, ok := c.HTTPClient.Transport.(*http.Transport); ok {
+		// cleanhttp deliberately leaves Transport.Proxy nil, which means "no
+		// proxy at all", so the selector has to be wired in here. It follows
+		// the system proxy by default; see proxy.go.
+		transport.Proxy = Proxy()
 	}
 	if cfg.SkipVerify {
 		if transport, ok := c.HTTPClient.Transport.(*http.Transport); ok {

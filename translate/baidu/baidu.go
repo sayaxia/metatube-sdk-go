@@ -1,6 +1,7 @@
 package baidu
 
 import (
+	"bytes"
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
@@ -53,8 +54,8 @@ func (bd *Baidu) Translate(text, from, to string) (result string, err error) {
 			Src string `json:"src"`
 			Dst string `json:"dst"`
 		} `json:"trans_result"`
-		ErrorCode string `json:"error_code"`
-		ErrorMsg  string `json:"error_msg"`
+		ErrorCode looseString `json:"error_code"`
+		ErrorMsg  string      `json:"error_msg"`
 	}{}
 	if err = json.NewDecoder(resp.Body).Decode(&data); err == nil {
 		if len(data.TransResult) > 0 {
@@ -64,11 +65,27 @@ func (bd *Baidu) Translate(text, from, to string) (result string, err error) {
 				s.WriteByte('\n')
 			}
 			result = strings.TrimSpace(s.String())
-		} else {
+		} else if data.ErrorCode != "" || data.ErrorMsg != "" {
 			err = fmt.Errorf("%s: %s", data.ErrorCode, data.ErrorMsg)
+		} else {
+			err = fmt.Errorf("translate: empty response")
 		}
 	}
 	return
+}
+
+// looseString accepts both a string and a bare number. The documented schema
+// types error_code as a string, but some replies (the AIT endpoint in
+// particular) send it as a number, which used to fail the whole decode and
+// hide the real message behind "cannot unmarshal number into Go struct field".
+type looseString string
+
+func (s *looseString) UnmarshalJSON(b []byte) error {
+	*s = looseString(bytes.Trim(bytes.TrimSpace(b), `"`))
+	if string(*s) == "null" {
+		*s = ""
+	}
+	return nil
 }
 
 func md5sum(s string) string {

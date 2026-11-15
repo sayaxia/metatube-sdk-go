@@ -21,7 +21,9 @@ func New(app *engine.Engine, v auth.Validator) *gin.Engine {
 		// support CORS
 		r.Use(cors.Default())
 		// register middleware
-		r.Use(logger(), recovery())
+		// requestLogger sits in front of recovery() so a panic that recovery
+		// answers with 500 is recorded with its final status.
+		r.Use(logger(), requestLogger(), recovery())
 		// fallback behavior
 		r.NoRoute(notFound())
 		r.NoMethod(notAllowed())
@@ -32,6 +34,11 @@ func New(app *engine.Engine, v auth.Validator) *gin.Engine {
 
 	// index page
 	r.GET("/", getIndex(app))
+
+	// embedded console
+	r.GET("/ui", getPanel())
+	r.GET("/ui/*any", getPanel())
+	r.GET("/favicon.ico", getFavicon())
 
 	system := r.Group("/v1", cacheNoStore())
 	{
@@ -44,7 +51,10 @@ func New(app *engine.Engine, v auth.Validator) *gin.Engine {
 		// a long time, especially behind a CDN.
 		cachePublicSMaxAge(180*24*time.Hour))
 	{
-		public.GET("/translate", getTranslate())
+		public.GET("/translate", getTranslate(v))
+		// Batch translation for the console: one request instead of a dozen when
+		// localising titles and actor names after a search.
+		public.POST("/translate/batch", postTranslateBatch(v))
 
 		images := public.Group("/images")
 		{
@@ -56,6 +66,23 @@ func New(app *engine.Engine, v auth.Validator) *gin.Engine {
 
 	private := r.Group("/v1", authentication(v))
 	{
+		// Runtime facts for the console. Kept private because it exposes the
+		// outbound proxy address.
+		private.GET("/status", cacheNoStore(), getSystemStatus(app))
+
+		// Request log for the console. Private because it exposes the queries
+		// and provider errors of everything else talking to this server.
+		logs := private.Group("/logs", cacheNoStore())
+		{
+			logs.GET("", getRequestLogs())
+			logs.DELETE("", clearRequestLogs())
+		}
+
+		// Engine credentials for the console's own translations. Private: the
+		// values are secrets, and the Metadata agent brings its own.
+		private.GET("/translate/config", cacheNoStore(), getTranslateConfig())
+		private.PUT("/translate/config", putTranslateConfig())
+
 		db := private.Group("/db")
 		{
 			db.GET("/version", getDBVersion(app))
