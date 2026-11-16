@@ -8,6 +8,10 @@
 - 番号修复的上游 PR：[metatube-community/metatube-sdk-go#388](https://github.com/metatube-community/metatube-sdk-go/pull/388)
 - Docker 镜像：`ghcr.io/sayaxia/metatube-server:<version>` / `ghcr.io/sayaxia/metatube-server:ltx`
 
+> **改动本仓库前请先读 [`AGENTS.md`](AGENTS.md)**（协作规约、目录地图、验证清单、发版流程，
+> 含多智能体协作规则），改完在 [`AGENT_LOG.md`](AGENT_LOG.md) 末尾追加一条记录。
+> 本文件面向使用者，`AGENTS.md` 面向维护者。
+
 ## 改动内容
 
 | 改动 | 说明 | 是否提交上游 |
