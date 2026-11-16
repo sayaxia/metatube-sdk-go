@@ -198,3 +198,16 @@
     并重建容器；旧容器名 `metatube` 要先 `docker rm -f`。
   - 插件工作区那 6 个「三层翻译保底」文件仍未提交、未部署，本轮刻意没碰。
   - 下次本地改动从 `4.1.1` 起（`version.sh bump`），下次发布为 `v4.2`。
+
+## 2026-11-16 23:54 · Doubao · 核对线上容器：已运行 v4.1（无代码改动）
+
+- 改动：无代码改动。核对 NAS 容器实际运行版本，关闭此前「容器还没换到 v4.1」的遗留项。
+- 文件：本日志；仓库外 `交接提示词.md`、`本地README.md` 的状态描述同步修正。
+- 验证：`GET http://<NAS-A>:8080/v1/status` 返回
+  `version=v4.1-c199514ef0f6c5bd90831c7f0e29719e718cd320`（= tag `v4.1`）、`goos=linux`、`goarch=amd64`；
+  容器 uptime 连续增长，推算约 23:46 启动。GHCR `:v4.1` 与 `:latest` 同一 digest `sha256:593bd2a8…`，
+  `:dev` 单独 digest。
+- 部署/发版：无，仅核对。
+- 待办/风险：本机无法确认容器所用 image digest（SSH 到 <NAS-A> 用默认密钥被拒、本机无 docker CLI），
+  版本串带完整 commit 可认定跑的是 v4.1 镜像。若 NAS 上的 compose 还留着旧镜像名 `metatube-server:ltx`，
+  下次 `up -d` 会拉不到新版，建议一并改成 `metatube-server-ltx:v4.1`（或 `:latest`）。
