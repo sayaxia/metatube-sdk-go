@@ -39,7 +39,7 @@
 
 | 项 | 值 |
 |---|---|
-| 工作目录 | `<工作区>/metatube` |
+| 工作目录 | `C:/Script/metatube/metatube-server-ltx` |
 | `origin` | `metatube-community/metatube-sdk-go`（**上游，只读，不要往上推**） |
 | `mine` | `sayaxia/metatube-sdk-go`（**推这里**） |
 | 主分支 | `main`，跟踪 `mine/main` |
@@ -47,6 +47,14 @@
 | 镜像 | `ghcr.io/sayaxia/metatube-server`，标签 `:ltx` `:1.4.0-ltx.N` `:dev` |
 
 **版本规则**：`:dev` 跟随 main push；`:ltx` 与 `v1.4.0-ltx.N` 只由 tag 触发。镜像 tag **不带 `v` 前缀**。
+
+**目录布局**（`C:/Script/metatube/` 下）：
+
+```
+metatube-server-ltx/     本仓库（服务端）
+metatube-plex-plugins/   Plex 插件仓库（姊妹项目）
+_tools/                  build-win.sh 构建脚本、metatube-win/ exe 运行时、_subrule/ 离线回归测试
+```
 
 **Git 凭据**：本机 Git Credential Manager 已登录，`git push` 直接可用，**不要向用户索要 PAT**。
 
@@ -75,11 +83,9 @@
 
 ## 4. 本地开发与构建
 
-本机是 Windows，Git Bash 环境下操作；便携 Go 在 `<工作区>/tools/go/bin`（先加进 `PATH`）。
+本机是 Windows，Git Bash 环境下操作；Go 用系统 PATH 里的 `go`（go1.27.3，与旧便携版同版本）。
 
 ```bash
-export PATH="<工作区>/tools/go/bin:$PATH"
-
 # 日常编译 + 静态检查
 go build ./...
 go vet ./route/... ./cmd/... ./internal/...
@@ -107,9 +113,9 @@ node --check /tmp/ui_inline.js
 **Windows 产物**（两个 exe，脚本在仓库外）：
 
 ```bash
-bash <工作区>/tools/build-win.sh
-# 版本自动取最近 tag，commit 取当前 HEAD；产物在 <工作区>/tools/metatube-win/
-# 校验：./tools/metatube-win/metatube-server.exe -version
+bash C:/Script/metatube/_tools/build-win.sh
+# 版本自动取最近 tag，commit 取当前 HEAD；产物在 C:/Script/metatube/_tools/metatube-win/
+# 校验：C:/Script/metatube/_tools/metatube-win/metatube-server.exe -version
 # panel 是 windowsgui 程序，没有 -version 参数（正常）
 ```
 

@@ -60,3 +60,17 @@
 - 验证：内容与当前代码/CI 实际状态逐项核对（tag、workflow、脚本路径、测试命令）。
 - 部署/发版：无，仅文档。
 - 待办/风险：后续智能体必须保持本文件与代码同步，否则以本文件为准追责到"最近一条日志"。
+
+---
+
+## 2026-11-16 22:33 · WorkBuddy · 项目目录迁移到 C:/Script/metatube
+
+- 改动：仓库从 WorkBuddy 会话工作区 `metatube/` 迁到 `C:/Script/metatube/metatube-server-ltx`；
+  姊妹插件仓库迁到同级 `metatube-plex-plugins`；构建脚本、exe 运行时、离线回归测试统一放到 `_tools/`。
+  `build-win.sh` 改为指向新仓库路径，并改用系统 PATH 的 `go`（与旧便携版同为 go1.27.3，不再依赖 `tools/go`）。
+- 文件：`AGENTS.md`（工作目录、目录布局、构建命令）、本日志；仓库外 `_tools/build-win.sh`、`_tools/_subrule/*.py`。
+- 验证：`git log` / `git status` 完整、remote 未变；`bash _tools/build-win.sh` 产出两个 exe，
+  `metatube-server.exe -version` = `v1.4.0-ltx.9-71ca427`；插件三个回归测试在新路径下全过（75/30/3）。
+- 部署/发版：无，仅目录与文档调整。
+- 待办/风险：旧工作区遗留 `tools/go`（268 MB 便携 Go）未删，择机清理；
+  若还有脚本写死旧路径，需同步修正。
