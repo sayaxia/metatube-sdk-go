@@ -128,3 +128,26 @@
   `metatube-server:v4.1`、RELEASE_NOTES 显示「镜像标签 `v4.1` 与 `latest`」；
   两个 workflow PyYAML 解析通过。
 - 部署/发版：仍未推送、未打 tag。
+
+## 2026-11-16 23:10 · WorkBuddy · 镜像改名 metatube-server-ltx + 临时目录约定
+
+- 改动：
+  - **镜像仓库改名**：`ghcr.io/sayaxia/metatube-server` → **`ghcr.io/sayaxia/metatube-server-ltx`**，
+    与上游同名镜像彻底区分（避免 `docker pull` 误拉上游版本）。
+    - `docker.yml`：`env.IMAGE` 改新名；发布标签仍是 `:v<版本>` + `:latest`，`:dev` 不变。
+    - `release.yml`：`docker build/load/save` 的本地镜像名、GHCR 地址、compose/INSTALL/RELEASE_NOTES
+      全部换成新名（离线包导入后是 `metatube-server-ltx:v4.1`）。
+    - `docker-compose.yaml` 默认镜像改新名。
+    - `Dockerfile`：`image.source` label 指向 fork 仓库。
+  - **临时目录约定**（用户要求）：新增 `C:/Script/metatube/temp/`（仓库外），排障/试运行产生的脚本、
+    日志 dump、截图一律放这里；确认要保留的再挪回项目合适位置；**每次 push 前清一遍**。
+    已写入 AGENTS.md 铁律第 9 条、提交前验证清单新增一行、目录布局图，以及 `temp/README.md`；
+    `交接提示词.md` 同步（布局、硬约束第 9 条、附二目录表、当前基线刷新到 4.x + 新镜像名）。
+- 文件：`.github/workflows/{docker,release}.yml`、`docker-compose.yaml`、`Dockerfile`、`README.md`、
+  `README.zh-CN.md`、`FORK.md`、`AGENTS.md`、`notes/4.1.md`、本日志；仓库外 `temp/README.md`、`交接提示词.md`。
+- 验证：提取 `release.yml` 生成脚本本地实跑（`VERSION=4.1 TAG=v4.1 OWNER=sayaxia`）→ compose
+  `image: ghcr.io/sayaxia/metatube-server-ltx:v4.1`，INSTALL 离线导入名与 `docker pull` 行全部为新名，
+  RELEASE_NOTES 含「镜像改名」条目；两个 workflow PyYAML 解析通过；全仓 grep 无旧名残留
+  （仅剩 README 里指向上游官方镜像的那一行，属正常引用）。
+- 部署/发版：未推送、未打 tag。**NAS 上的 compose 仍写 `metatube-server:ltx`，发 4.1 之后必须改成
+  `metatube-server-ltx:latest` 或 `metatube-server-ltx:v4.1`，否则拉不到（新仓库名此前不存在）。**

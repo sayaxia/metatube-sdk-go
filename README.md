@@ -49,8 +49,10 @@ This fork numbers itself independently of upstream:
 | GitHub release | `v4.1`, `v4.2`, … (minor increments, patch back to 0) |
 
 `VERSION` at the repo root is the single source of truth; `scripts/version.sh` bumps it —
-`bump` for a local change, `release` for a tagged release. GHCR images are published as both
-`:v<version>` (e.g. `v4.1`) and `:latest`; the old `:ltx` alias no longer moves.
+`bump` for a local change, `release` for a tagged release. GHCR images live under
+`ghcr.io/sayaxia/metatube-server-ltx` (the `-ltx` suffix keeps them apart from the upstream
+`metatube-server` image) and are published as both `:v<version>` (e.g. `v4.1`) and `:latest`;
+the old `:ltx` alias no longer moves.
 
 ## Contents
 

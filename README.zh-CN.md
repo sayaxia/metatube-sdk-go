@@ -62,7 +62,8 @@ English version: [README.md](README.md)
 
 - 版本号唯一来源是仓库根的 `VERSION` 文件，`scripts/version.sh` 负责推进：
   `bump`（本地改动 +1）、`release`（升到下一个发布版本并提交）。
-- 镜像标签：`:v4.1`（本轮版本号，**带 v**）+ `:latest`；旧的 `:ltx` 自 v4.1 起**停止更新**。
+- 镜像：`ghcr.io/sayaxia/metatube-server-ltx`（**带 `-ltx` 后缀**，与上游 `metatube-server` 区分），
+  标签为 `:v4.1`（本轮版本号，**带 v**）+ `:latest`；旧的 `:ltx` 自 v4.1 起**停止更新**。
 - 每次发版的更新说明只写本轮改动，放在 `notes/<版本>.md`；CI 缺这个文件会直接失败。
 
 ## 这个分支解决什么问题
@@ -137,7 +138,7 @@ replace github.com/metatube-community/metatube-sdk-go => github.com/sayaxia/meta
 ```bash
 docker run -d --name metatube -p 8080:8080 \
   -v metatube-data:/data \
-  ghcr.io/sayaxia/metatube-server:latest \
+  ghcr.io/sayaxia/metatube-server-ltx:latest \
   -dsn /data/metatube.db -port 8080
 ```
 
@@ -146,7 +147,7 @@ docker run -d --name metatube -p 8080:8080 \
 ```yaml
 services:
   metatube:
-    image: ghcr.io/sayaxia/metatube-server:latest
+    image: ghcr.io/sayaxia/metatube-server-ltx:latest
     container_name: metatube
     ports:
       - "8080:8080"
@@ -180,10 +181,10 @@ gunzip -c metatube-server-<VER>-linux-amd64.tar.gz | docker load
 # arm64
 gunzip -c metatube-server-<VER>-linux-arm64.tar.gz | docker load
 
-docker images | grep metatube-server   # metatube-server:<VER>
+docker images | grep metatube-server-ltx   # metatube-server-ltx:v4.1
 ```
 
-加载出的镜像名称为 `metatube-server:<VER>`，把 compose 里的 `image` 换成它即可。
+加载出的镜像名称为 `metatube-server-ltx:v4.1`（版本号带 v），把 compose 里的 `image` 换成它即可。
 每个镜像包都附带 `.sha256` 文件，下载后可校验：
 
 ```bash
@@ -264,7 +265,7 @@ go build -trimpath \
 ```bash
 # 构建镜像
 VERSION=$(tr -d ' \r\n' < VERSION)
-docker build -t metatube-server:$VERSION \
+docker build -t metatube-server-ltx:$VERSION \
   --build-arg VERSION=$VERSION \
   --build-arg COMMIT=$(git rev-parse --short HEAD) .
 ```

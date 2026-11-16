@@ -5,7 +5,7 @@
 
 - 上游基线版本：**v1.4.0**（commit `fdadc9c`），另已同步 `main` 上尚未发版的 `FC2DB` provider（上游提交 `59ac7f2`）
 - 项目名：**metatube-server-ltx**，版本号与上游彻底解耦：**`v4.N`**（规则见下节）
-- Docker 镜像：`ghcr.io/sayaxia/metatube-server:v4.1`（固定版本）/ `:latest`（最新发布）
+- Docker 镜像：`ghcr.io/sayaxia/metatube-server-ltx:v4.1`（固定版本）/ `:latest`（最新发布）
 - 番号修复的上游 PR：[metatube-community/metatube-sdk-go#388](https://github.com/metatube-community/metatube-sdk-go/pull/388)
 
 ## 版本号与发版
@@ -141,7 +141,7 @@ Plex 侧日志报 `APIError: 404 <provider not found>`，刷新 5 毫秒就结�
 需要退回纯上游构建时：
 
 ```bash
-docker build --build-arg BUILD_TAGS= -t metatube-server:plain .
+docker build --build-arg BUILD_TAGS= -t metatube-server-ltx:plain .
 # 或本地
 make server            # 无 tag
 make server-experimental  # 带实验池
@@ -163,7 +163,7 @@ docker logs metatube 2>&1 | grep 'Disable movie provider'  # 被停用的 provid
 ```bash
 docker run -d --name metatube -p 8080:8080 \
   -v metatube-data:/data \
-  ghcr.io/sayaxia/metatube-server:latest \
+  ghcr.io/sayaxia/metatube-server-ltx:latest \
   -dsn /data/metatube.db -port 8080
 ```
 

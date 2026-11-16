@@ -32,6 +32,10 @@
 6. **批量刷新前先确认翻译额度。** 额度耗尽时翻译会回退日文原文并写回 Plex（2026-11-12 事故根因）。
 7. **改完必须验证**（见 §5），验证没过不许说"完成"。
 8. **一个改动一个主题。** 不要顺手重构无关代码，不要把多个不相关的修复塞进同一个提交。
+9. **临时文件只放 `C:/Script/metatube/temp/`。** 排障、试运行、一次性脚本、日志 dump、截图、
+   验证产物，一律写到这个目录；**不要写进仓库、不要放桌面**。用完确认「确实需要保留」的，
+   再挪进项目里合适的位置（脚本进 `scripts/`、回归测试进对应测试目录）。**每次 push 前清一遍 temp**，
+   确认过期的直接删——仓库里出现临时文件同样算不合格（见验证清单）。
 
 ---
 
@@ -44,7 +48,7 @@
 | `mine` | `sayaxia/metatube-sdk-go`（**推这里**） |
 | 主分支 | `main`，跟踪 `mine/main` |
 | 当前版本 | 仓库根 `VERSION` = `4.0.0`（本地开发版本）；旧编号 `v1.4.0-ltx.N` 已停用 |
-| 镜像 | `ghcr.io/sayaxia/metatube-server`，标签 `:v<版本>` `:latest` `:dev` |
+| 镜像 | `ghcr.io/sayaxia/metatube-server-ltx`（**带 `-ltx` 后缀，与上游镜像区分**），标签 `:v<版本>` `:latest` `:dev` |
 
 **版本规则**（与上游彻底解耦，详见 §6）：
 
@@ -60,6 +64,7 @@
 metatube-server-ltx/     本仓库（服务端）
 metatube-plex-plugins/   Plex 插件仓库（姊妹项目）
 _tools/                  build-win.sh 构建脚本、metatube-win/ exe 运行时、_subrule/ 离线回归测试
+temp/                    临时目录：排障/试运行产生的脚本、dump、截图全放这里（不放仓库内）
 ```
 
 **Git 凭据**：本机 Git Credential Manager 已登录，`git push` 直接可用，**不要向用户索要 PAT**。
@@ -145,6 +150,7 @@ bash C:/Script/metatube/_tools/build-win.sh
 | 前端 JS | `node --check` | 成功 |
 | 脱敏 | `git diff` 肉眼过一遍 + grep 内网 IP/真实番号/密钥前缀 | 无命中 |
 | 误提交 | `git status --short` | 无 `translate.json` / `panel.json` / `*.exe` / `data/` |
+| 临时文件 | 看 `C:/Script/metatube/temp/`（应只剩本次仍需要的） | 要留的已挪进仓库，其余已删；仓库内无临时文件 |
 
 ---
 
