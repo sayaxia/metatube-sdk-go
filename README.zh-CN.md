@@ -62,7 +62,7 @@ English version: [README.md](README.md)
 
 - 版本号唯一来源是仓库根的 `VERSION` 文件，`scripts/version.sh` 负责推进：
   `bump`（本地改动 +1）、`release`（升到下一个发布版本并提交）。
-- 镜像标签：`:4.1`（本轮版本号）+ `:latest`；旧的 `:ltx` 自 v4.1 起**停止更新**。
+- 镜像标签：`:v4.1`（本轮版本号，**带 v**）+ `:latest`；旧的 `:ltx` 自 v4.1 起**停止更新**。
 - 每次发版的更新说明只写本轮改动，放在 `notes/<版本>.md`；CI 缺这个文件会直接失败。
 
 ## 这个分支解决什么问题
@@ -165,7 +165,7 @@ docker compose pull && docker compose up -d
 | 标签 | 含义 |
 | --- | --- |
 | `latest` | 最新一次发布版本（跟随 tag，不跟 `main`） |
-| `4.1` | 固定版本号，生产环境建议锁定 |
+| `v4.1` | 固定版本号（与 git tag 一致），生产环境建议锁定 |
 | `dev` | `main` 上每次提交的构建，仅供自测 |
 
 `docker-compose.yaml` 中的上游写法（如需回到官方）：`ghcr.io/metatube-community/metatube-server:latest`。
@@ -280,7 +280,7 @@ git push mine main && git push mine v4.1     # 需用户明确同意后再推
 推 tag 后 GitHub Actions 会自动：
 
 1. 构建 `linux/amd64` 与 `linux/arm64` 镜像并推送到 `ghcr.io/sayaxia/metatube-server`
-   （标签 `:<版本>` 与 `:latest`）；
+   （标签 `:v<版本>` 与 `:latest`）；
 2. 编译 Linux amd64/arm64 裸二进制、导出两个架构的 `docker load` 镜像包、交叉编译
    Windows x64 的两个 exe，连同 `docker-compose.yml`、`INSTALL.md`、`.sha256` 发布到 Releases；
 3. Release 说明只取 `notes/<版本>.md` 的**本轮**内容。

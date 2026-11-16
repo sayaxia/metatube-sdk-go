@@ -5,7 +5,7 @@
 
 - 上游基线版本：**v1.4.0**（commit `fdadc9c`），另已同步 `main` 上尚未发版的 `FC2DB` provider（上游提交 `59ac7f2`）
 - 项目名：**metatube-server-ltx**，版本号与上游彻底解耦：**`v4.N`**（规则见下节）
-- Docker 镜像：`ghcr.io/sayaxia/metatube-server:4.1`（固定版本）/ `:latest`（最新发布）
+- Docker 镜像：`ghcr.io/sayaxia/metatube-server:v4.1`（固定版本）/ `:latest`（最新发布）
 - 番号修复的上游 PR：[metatube-community/metatube-sdk-go#388](https://github.com/metatube-community/metatube-sdk-go/pull/388)
 
 ## 版本号与发版
@@ -21,8 +21,9 @@
 
 - **唯一来源**：仓库根 `VERSION`。`scripts/version.sh` 提供 `show` / `bump` / `release` / `verify`
   四个子命令，`release` 会自动校验 `notes/<版本>.md` 是否存在。
-- **tag**：`v4.1`（两点式，不带 PATCH）；镜像 tag 不带 `v`。
-- **镜像标签**：`:<版本>` + `:latest`；旧 `:ltx` 自 v4.1 起**停止更新**（历史镜像仍可拉取）。
+- **tag**：`v4.1`（两点式，不带 PATCH）；**镜像 tag 与 tag 完全一致，同样带 `v`**（`:v4.1`），
+  二进制内部版本号则不带（`4.1`、`-version` 输出 `v4.1-<sha>`）。
+- **镜像标签**：`:v<版本>`（如 `:v4.1`）+ `:latest`；旧 `:ltx` 自 v4.1 起**停止更新**（历史镜像仍可拉取）。
 - **发布说明**：只写本轮改动，放在 `notes/<版本>.md`；CI 缺这个文件会直接失败，
   不会出现"沿用上版说明"的情况。
 - **发布产物**：Linux amd64/arm64 裸二进制包、Linux amd64/arm64 的 `docker load` 镜像包、
@@ -40,7 +41,7 @@
 | 同步上游 `FC2DB` provider | FC2 官方详情页改为强制登录后，用 `fc2db.net` 兜底，恢复 FC2-PPV 番号刮削 | ✅ 上游已合并（#389），本分支同步 |
 | `Dockerfile` | 支持通过 build-arg 注入 `VERSION` / `COMMIT`，保证镜像内 `-version` 显示分支版本 | ❌ 仅本分支 |
 | 镜像默认 `-tags experimental` | 编入实验池 provider（AVBASE / ThePornDB / AV-LEAGUE），见下节 | ❌ 仅本分支 |
-| `.github/workflows/docker.yml` | 推送到本仓库 GHCR 命名空间（上游固定为 `metatube-community`，fork 无权限）；发布版打 `:<版本>` + `:latest` | ❌ 仅本分支 |
+| `.github/workflows/docker.yml` | 推送到本仓库 GHCR 命名空间（上游固定为 `metatube-community`，fork 无权限）；发布版打 `:v<版本>` + `:latest` | ❌ 仅本分支 |
 | `.github/workflows/release.yml` | tag 触发：编译 Linux amd64/arm64 裸二进制、导出两个架构的 `docker load` 镜像包、交叉编译 Windows x64 两个 exe，按 `notes/<版本>.md` 生成本轮说明并发布 Releases | ❌ 仅本分支 |
 | `VERSION` / `scripts/version.sh` / `notes/` | 独立版本号体系（`4.x`，发布 = MINOR+1）与每轮发布说明；tag 为两点式 `v4.1` | ❌ 仅本分支 |
 | `docker-compose.yaml` | 默认使用本分支镜像与本地 SQLite | ❌ 仅本分支 |

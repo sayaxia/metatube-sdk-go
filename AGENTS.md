@@ -44,15 +44,15 @@
 | `mine` | `sayaxia/metatube-sdk-go`（**推这里**） |
 | 主分支 | `main`，跟踪 `mine/main` |
 | 当前版本 | 仓库根 `VERSION` = `4.0.0`（本地开发版本）；旧编号 `v1.4.0-ltx.N` 已停用 |
-| 镜像 | `ghcr.io/sayaxia/metatube-server`，标签 `:<版本>` `:latest` `:dev` |
+| 镜像 | `ghcr.io/sayaxia/metatube-server`，标签 `:v<版本>` `:latest` `:dev` |
 
 **版本规则**（与上游彻底解耦，详见 §6）：
 
 - 本地改动：PATCH +1 → `4.0.0` → `4.0.1` → `4.0.2` …
 - 推送发版：MINOR +1、PATCH 归零 → `4.1.0`，tag **两点式** `v4.1`
-- `:dev` 跟随 main push；`:<版本>`（如 `:4.1`）与 `:latest` 只由 tag 触发；
+- `:dev` 跟随 main push；`:v<版本>`（如 `:v4.1`，与 git tag 一字不差）与 `:latest` 只由 tag 触发；
   旧的 `:ltx` 自 v4.1 起停止更新
-- 镜像 tag **不带 `v` 前缀**
+- 镜像 tag **带 `v` 前缀**（`:v4.1`），与 git tag 完全一致；二进制内部版本号不带（`4.1`）
 
 **目录布局**（`C:/Script/metatube/` 下）：
 
@@ -83,7 +83,7 @@ _tools/                  build-win.sh 构建脚本、metatube-win/ exe 运行时
 | `internal/iconres/` | 应用图标：ICO 母版、解析器、`gen-icon.py`（可复现生成） |
 | `cmd/{server,panel}/icon_windows_amd64.syso` | 编进 exe 的图标资源，仅 windows/amd64 自动链接 |
 | `engine/init.go` | 启动时 `fetch.InstallDefaultTransport()`（colly 也走代理的关键） |
-| `.github/workflows/` | `docker.yml`（main→`:dev`，tag→`:<版本>`+`:latest`）、`release.yml`(tag→镜像+Linux 二进制+exe+Release)、`test.yml`、`linter.yml`、`codeql-analysis.yml` |
+| `.github/workflows/` | `docker.yml`（main→`:dev`，tag→`:v<版本>`+`:latest`）、`release.yml`(tag→镜像+Linux 二进制+exe+Release)、`test.yml`、`linter.yml`、`codeql-analysis.yml` |
 | `VERSION` | 版本号唯一来源（本地 `4.0.1` / 发布 `4.1.0`），Makefile、Dockerfile、CI、build-win.sh 都读它 |
 | `scripts/version.sh` | `show` / `bump` / `release` / `verify`，发版与 CI 校验都走它 |
 | `notes/<版本>.md` | 本轮发布说明（只写本轮），release.yml 缺文件直接失败 |
@@ -173,14 +173,14 @@ git push mine main && git push mine v4.1
 
 推 tag 后 `release.yml` 会跑：Prepare（`version.sh verify` 校验 tag/VERSION/notes 自洽）→
 Image amd64/arm64 → Linux binary amd64/arm64 → Windows binaries → Publish Release；
-`docker.yml` 同时推 `:<版本>` 与 `:latest`。
+`docker.yml` 同时推 `:v<版本>` 与 `:latest`。
 
 发版后必须核验（三项都做）：
 
 1. `actions/runs` 全部 success（Image×2 / Linux×2 / Windows / Publish Release / Publish Docker Image）
 2. Release 资产齐全：Linux amd64/arm64 裸二进制 + 两个镜像包（各带 `.sha256`）+ 2 个 exe
    + `docker-compose.yml` + `INSTALL.md`
-3. GHCR `:latest` 与 `:<版本>` 指向同一 digest
+3. GHCR `:latest` 与 `:v<版本>` 指向同一 digest
 
 已知 CI 坑：
 

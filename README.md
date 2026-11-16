@@ -50,7 +50,7 @@ This fork numbers itself independently of upstream:
 
 `VERSION` at the repo root is the single source of truth; `scripts/version.sh` bumps it —
 `bump` for a local change, `release` for a tagged release. GHCR images are published as both
-`:<version>` (e.g. `4.1`) and `:latest`; the old `:ltx` alias no longer moves.
+`:v<version>` (e.g. `v4.1`) and `:latest`; the old `:ltx` alias no longer moves.
 
 ## Contents
 

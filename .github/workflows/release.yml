@@ -91,14 +91,14 @@ jobs:
             VERSION=${{ needs.prepare.outputs.version }}
             COMMIT=${{ needs.prepare.outputs.commit }}
             BUILD_TAGS=experimental
-          tags: metatube-server:${{ needs.prepare.outputs.version }}
+          tags: metatube-server:${{ needs.prepare.outputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Export docker image
         run: |
           NAME="metatube-server-${{ needs.prepare.outputs.version }}-linux-${{ matrix.arch }}"
-          docker save "metatube-server:${{ needs.prepare.outputs.version }}" | gzip -9 > "${NAME}.tar.gz"
+          docker save "metatube-server:${{ needs.prepare.outputs.tag }}" | gzip -9 > "${NAME}.tar.gz"
           sha256sum "${NAME}.tar.gz" > "${NAME}.tar.gz.sha256"
           ls -lh "${NAME}.tar.gz"
 
@@ -253,7 +253,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          IMAGE="ghcr.io/${OWNER}/metatube-server:${VERSION}"
+          IMAGE="ghcr.io/${OWNER}/metatube-server:${TAG}"
           ROUND="notes/${VERSION}.md"
           # 本轮更新说明必须单独存在，缺失即失败（防止把历史内容带进本版说明）。
           [ -f "${ROUND}" ] || { echo "missing ${ROUND}" >&2; exit 1; }
@@ -288,10 +288,10 @@ jobs:
           docker load -i metatube-server-${VERSION}-linux-amd64.tar.gz
           # gunzip -c metatube-server-${VERSION}-linux-amd64.tar.gz | docker load
 
-          # 2. 运行（导入后的镜像名是 metatube-server:${VERSION}）
+          # 2. 运行（导入后的镜像名是 metatube-server:${TAG}）
           docker run -d --name metatube -p 8080:8080 \\
             -v metatube-data:/data \\
-            metatube-server:${VERSION} -dsn /data/metatube.db -port 8080
+            metatube-server:${TAG} -dsn /data/metatube.db -port 8080
           \`\`\`
 
           ## 方式二：docker compose（在线拉取 GHCR）
@@ -306,13 +306,13 @@ jobs:
           docker-compose pull && docker-compose up -d        # v1
           \`\`\`
 
-          用离线包又想让 compose 跑起来：把 compose 里的 \`image\` 改成 \`metatube-server:${VERSION}\`，
+          用离线包又想让 compose 跑起来：把 compose 里的 \`image\` 改成 \`metatube-server:${TAG}\`，
           之后不要再执行 \`pull\`。
 
           ## 方式三：直接拉取 GHCR 镜像（多架构）
 
           \`\`\`bash
-          docker pull ${IMAGE}                 # 固定版本
+          docker pull ${IMAGE}                 # 固定版本（${TAG}）
           docker pull ghcr.io/${OWNER}/metatube-server:latest   # 跟随最新发布
           docker run -d --name metatube -p 8080:8080 -v metatube-data:/data ${IMAGE}
           \`\`\`
@@ -367,7 +367,7 @@ jobs:
           {
             echo "## metatube-server-ltx ${TAG}"
             echo
-            echo "镜像标签 \`${VERSION}\` 与 \`latest\`；旧的 \`:ltx\` 不再更新。"
+            echo "镜像标签 \`${TAG}\` 与 \`latest\`；旧的 \`:ltx\` 不再更新。"
             echo
             echo "### 本轮改动"
             echo
@@ -386,7 +386,7 @@ jobs:
             echo "| \`INSTALL.md\` | 安装与验证步骤 |"
             echo "| \`*.sha256\` | 校验文件 |"
             echo
-            echo "GHCR: \`ghcr.io/${OWNER}/metatube-server:${VERSION}\` / \`:latest\`"
+            echo "GHCR: \`ghcr.io/${OWNER}/metatube-server:${TAG}\` / \`:latest\`"
             echo
             echo "构建日志：${RUN_URL}"
           } > dist/RELEASE_NOTES.md

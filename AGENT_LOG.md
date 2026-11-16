@@ -109,3 +109,22 @@
   - 发 4.1 后 `:ltx` 停在旧镜像，任何仍引用它的部署不会自动更新。
   - 本次改动与之前两个 docs 提交（`71ca427`、`bf2c2e9`）都还在本地。
   - 插件仓库版本号按用户要求**暂不动**。
+
+## 2026-11-16 23:05 · WorkBuddy · 镜像 tag 改为带 v（`v4.1`）
+
+- 改动：Docker 镜像 tag 从 `<版本>`（`4.1`）改为 **`v<版本>`（`v4.1`）**，与 git tag 一字不差；
+  `:latest` 不变。
+  - `docker.yml`：Get Version 增加 `tagv` 输出（tag 触发时=`${GITHUB_REF_NAME}` 即 `v4.1`，
+    main 触发时=`dev`），发布构建的 tags 用 `tagv`。
+  - `release.yml`：本地 `docker load` 镜像名、`docker save`、compose/INSTALL/RELEASE_NOTES
+    里的 GHCR 地址统一用 `TAG`（`v4.1`）；资产文件名仍用不加 v 的 `4.1`。
+  - 顺带修掉一处旧 bug：main 分支 `build-args` 里写的是 `VERSION=dev-${{ version }}`，而
+    `version` 本身已是 `dev-4.0.1-<sha>`，会变成 `dev-dev-4.0.1-<sha>`；现改为直接引用。
+  - `Dockerfile`：注释与 `image.title` label 改为 `metatube-server-ltx`。
+  - 文档同步：`README.md` / `README.zh-CN.md` / `FORK.md` / `AGENTS.md` / `notes/4.1.md` /
+    `scripts/version.sh` 注释，全部改成「镜像 tag 带 v，二进制内部版本号不带」。
+- 验证：提取 `release.yml` 的生成脚本本地实跑（`VERSION=4.1 TAG=v4.1`）→ compose
+  `image: ghcr.io/sayaxia/metatube-server:v4.1`、INSTALL 里离线导入后镜像名
+  `metatube-server:v4.1`、RELEASE_NOTES 显示「镜像标签 `v4.1` 与 `latest`」；
+  两个 workflow PyYAML 解析通过。
+- 部署/发版：仍未推送、未打 tag。

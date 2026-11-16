@@ -53,11 +53,15 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            # 镜像 tag 带 v（v4.1）；二进制内部版本号不带（4.1），与 -version 输出一致。
+            TAGV="${GITHUB_REF_NAME}"
             VERSION="${GITHUB_REF_NAME#v}"
           else
             # 本地开发版本（VERSION 文件，如 4.0.1）+ 短提交号，便于区分 main 上的每次构建。
+            TAGV="dev"
             VERSION="dev-$(tr -d ' \r\n' < VERSION)-$(git rev-parse --short HEAD)"
           fi
+          echo "tagv=${TAGV}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Build and Push (dev)
@@ -69,7 +73,7 @@ jobs:
           outputs: type=image,push=true,oci-mediatypes=false
           platforms: linux/amd64,linux/arm64
           build-args: |
-            VERSION=dev-${{ steps.shell.outputs.version }}
+            VERSION=${{ steps.shell.outputs.version }}
             COMMIT=${{ github.sha }}
             BUILD_TAGS=experimental
           tags: |
@@ -94,7 +98,7 @@ jobs:
             COMMIT=${{ github.sha }}
             BUILD_TAGS=experimental
           tags: |
-            ${{ env.IMAGE }}:${{ steps.shell.outputs.version }}
+            ${{ env.IMAGE }}:${{ steps.shell.outputs.tagv }}
             ${{ env.IMAGE }}:latest
           provenance: false
           sbom: false
