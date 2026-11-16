@@ -52,7 +52,7 @@
 | `origin` | `metatube-community/metatube-sdk-go`（**上游，只读，不要往上推**） |
 | `mine` | `sayaxia/metatube-sdk-go`（**推这里**） |
 | 主分支 | `main`，跟踪 `mine/main` |
-| 当前版本 | 仓库根 `VERSION` = `4.0.0`（本地开发版本）；旧编号 `v1.4.0-ltx.N` 已停用 |
+| 当前版本 | 仓库根 `VERSION` = `4.1.0`，已发布 **`v4.1`**（commit `c199514`）；下一次本地改动从 `4.1.1` 起（`version.sh bump`），下次发布为 `v4.2`。旧编号 `v1.4.0-ltx.N` 已停用 |
 | 镜像 | `ghcr.io/sayaxia/metatube-server-ltx`（**带 `-ltx` 后缀，与上游镜像区分**），标签 `:v<版本>` `:latest` `:dev` |
 
 **版本规则**（与上游彻底解耦，详见 §6）：

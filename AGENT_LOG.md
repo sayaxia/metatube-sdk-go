@@ -169,3 +169,32 @@
 - 文件：`AGENTS.md`、`.gitignore`、`README.zh-CN.md`、本日志；仓库外 `本地README.md`、`交接提示词.md`。
 - 验证：`git check-ignore -v 本地README.md` 命中；文档改动无代码影响；`go build ./...` 未受影响（未动代码）。
 - 部署/发版：未推送、未打 tag。用户会自行重新拉镜像、重建 NAS 容器，不代为操作。
+
+## 2026-11-16 23:15 · WorkBuddy · 首次按 4.x 体系发布 v4.1（已推送）
+
+- 改动：把 6 个本地提交推上 GitHub，并按新版本体系发布第一个版本。
+  - `scripts/version.sh release --tag`：`VERSION` 4.0.0 → **4.1.0**，本地打 tag **`v4.1`**
+    （commit `c199514`），随后推 `main`（`3a3ef01..c199514`）与 tag。
+  - 插件仓库同步推送 `main`（`86b2c28..f1acd5f`），其中 `b70e3a7` 改了 bundle，
+    自动产出插件 Release **`v2026.1116.1517.0-f1acd5f`**。
+- 发版核验（全部实测）：
+  - CI 全绿：Test / Linter / CodeQL / Image amd64 / Image arm64 / Linux binary amd64+arm64 /
+    Windows binaries / Prepare / Publish Release / Publish Docker Image(tag) 均 success。
+  - Release `v4.1`（`metatube-server-ltx v4.1`）共 **12 个资产**：4 个 Linux tar.gz（amd64/arm64 ×
+    裸二进制/镜像包）+ 4 个 `.sha256` + `metatube-server.exe`(46.87 MB) + `metatube-panel.exe`(7.96 MB)
+    + `docker-compose.yml` + `INSTALL.md`；说明正文只含本轮 `notes/4.1.md` 内容。
+  - 下载 `metatube-server-4.1-linux-amd64.tar.gz` 实算 SHA-256 与 Release 提供的 `.sha256` **一致**
+    （`02662930…`）；解包读 `manifest.json` → 镜像名 **`metatube-server-ltx:v4.1`**，
+    label `image.title=metatube-server-ltx` / `image.version=4.1`。
+  - 下载 `metatube-server.exe` 实跑 `env -u VERSION ./metatube-server.exe -version` →
+    **`v4.1-c199514`**（版本与提交号都对）。
+  - GHCR：`:v4.1` 与 `:latest` 同一 digest **`sha256:593bd2a8…`**，manifest list 含 linux/amd64 +
+    linux/arm64（Docker v2 manifest list，DSM 18.09 可拉）；`:dev` 单独 digest（main 构建）。
+  - 包是私有的：匿名 token 拉 manifest 返回 DENIED，需带 GitHub token 换 GHCR token 才能查。
+- 部署/发版：服务端与插件**均已推送**，服务端 Release `v4.1` 是当前线上版本；
+  旧编号 `v1.4.0-ltx.N` 与 `:ltx` 标签正式停用（历史镜像未删除）。
+- 待办/风险：
+  - NAS 上 compose 仍写 `metatube-server:ltx`，**必须改成 `metatube-server-ltx:v4.1`（或 `:latest`）**
+    并重建容器；旧容器名 `metatube` 要先 `docker rm -f`。
+  - 插件工作区那 6 个「三层翻译保底」文件仍未提交、未部署，本轮刻意没碰。
+  - 下次本地改动从 `4.1.1` 起（`version.sh bump`），下次发布为 `v4.2`。
