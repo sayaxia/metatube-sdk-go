@@ -36,6 +36,11 @@
    验证产物，一律写到这个目录；**不要写进仓库、不要放桌面**。用完确认「确实需要保留」的，
    再挪进项目里合适的位置（脚本进 `scripts/`、回归测试进对应测试目录）。**每次 push 前清一遍 temp**，
    确认过期的直接删——仓库里出现临时文件同样算不合格（见验证清单）。
+10. **本地 README 与 GitHub README 严格分开。** 每轮改动记在仓库外的
+    `C:/Script/metatube/本地README.md`（**绝不上传 GitHub**，也禁止 `git add -f` 强加）。
+    GitHub 的 `README*.md` / `FORK.md` 只写**成品当前真实具备的能力**；本地加过又删掉的功能、
+    试过又否掉的方案、事故复盘一律**不进** GitHub README，只在本地 README 留一条
+    「加了什么 / 为什么撤 / 撤到哪儿」。
 
 ---
 
@@ -167,7 +172,8 @@ git add <文件...> && git commit -m "feat(scope): ..."
 
 # 3. 发版前必须先做的事（缺一项都算没完成）
 #    a. notes/<下个版本>.md 写本轮更新说明（只写本轮，不带历史）
-#    b. README.md / README.zh-CN.md 把本轮改动**合并**进「分支新增功能」，不是追加"本轮新增"小节
+#    b. README.md / README.zh-CN.md 把本轮改动**合并**进「分支新增功能」，不是追加"本轮新增"小节；
+#       只写最终保留、用户真能用到的东西 —— 试过又撤掉的不写，记在仓库外 本地README.md
 #    c. FORK.md 同步受影响的章节
 
 # 4. 定版（写 VERSION=4.1.0 + 提交 + 本地打 tag，默认不推送）
@@ -253,6 +259,7 @@ Image amd64/arm64 → Linux binary amd64/arm64 → Windows binaries → Publish 
 | 构建方式、CI、发版流程 | 本文件 §4/§5/§6、`README*.md` |
 | 版本号规则、发布产物、镜像标签 | 本文件 §2/§6、`FORK.md`「版本号与发版」、`README*.md`；本轮说明写 `notes/<版本>.md` |
 | 用户可见行为 | `README.md` + `README.zh-CN.md` |
+| 每轮完整改动、试过又撤掉的方案、事故复盘 | 仓库外 `C:/Script/metatube/本地README.md`（**绝不提交**） |
 | 平台差异（Windows / Docker） | 本文件 §8，并确认 Docker 侧不受影响 |
 
 ---

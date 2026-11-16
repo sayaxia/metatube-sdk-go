@@ -125,11 +125,14 @@ MetaTube 在检索前会对文件名做番号归一化，但原逻辑只剥离 `
 go get -u github.com/metatube-community/metatube-sdk-go
 ```
 
-如需使用本分支的修复，可在 `go.mod` 中替换为本地源码或本仓库路径：
+如需使用本分支的修复，在 `go.mod` 里替换成本目录的源码路径即可：
 
 ```
-replace github.com/metatube-community/metatube-sdk-go => github.com/sayaxia/metatube-sdk-go v4.1
+replace github.com/metatube-community/metatube-sdk-go => /path/to/metatube-server-ltx
 ```
+
+> 不要写成 `=> github.com/sayaxia/metatube-sdk-go v4.1`：本分支版本号是 4.x，
+> 而 Go 要求 v2 及以上的模块路径带 `/v4` 后缀，直接按版本号替换会被 `go` 拒绝。
 
 ### Docker 部署（推荐）
 

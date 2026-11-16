@@ -151,3 +151,21 @@
   （仅剩 README 里指向上游官方镜像的那一行，属正常引用）。
 - 部署/发版：未推送、未打 tag。**NAS 上的 compose 仍写 `metatube-server:ltx`，发 4.1 之后必须改成
   `metatube-server-ltx:latest` 或 `metatube-server-ltx:v4.1`，否则拉不到（新仓库名此前不存在）。**
+
+## 2026-11-16 23:15 · WorkBuddy · 本地 README 与 GitHub README 分离
+
+- 改动（用户要求）：
+  - 新增**仓库外** `C:/Script/metatube/本地README.md`：按轮次记录「改了什么 / 动了哪些文件 /
+    哪些进了 GitHub README、哪些没进及原因 / 验证 / 撤回或遗留」，并回填了近期各轮
+    （4.x 版本体系、镜像 v 标签、镜像改名、目录迁移、控制台+面板+图标、MT_TRANSLATE_JSON、
+    11-12 重刷事故）以及「试过又否掉」的方案（exe 事后注入图标、windows-latest、`:ltx` 标签、
+    PMS 1.40 插件侧换封面）。
+  - 规矩：**本地加过又删掉的内容不进 GitHub README**；GitHub README/FORK 只写成品当前真实能力；
+    本地 README 绝不上传（也不 `git add -f`）。
+  - `AGENTS.md`：铁律新增第 10 条；§6 发版前必做 b 项补「只写最终保留的能力」；§9 文档义务表加一行。
+  - `.gitignore`：加 `本地README.md` / `LOCAL_README.md` / `*.local.md` 防呆（已用 check-ignore 验证）。
+  - 顺带修 README.zh-CN 里一个**不可用的示例**：`replace ... => github.com/sayaxia/metatube-sdk-go v4.1`
+    违反 Go 主版本路径规则（v2+ 需 `/v4` 后缀），`go` 会直接拒绝；改为本地源码路径替换并注明原因。
+- 文件：`AGENTS.md`、`.gitignore`、`README.zh-CN.md`、本日志；仓库外 `本地README.md`、`交接提示词.md`。
+- 验证：`git check-ignore -v 本地README.md` 命中；文档改动无代码影响；`go build ./...` 未受影响（未动代码）。
+- 部署/发版：未推送、未打 tag。用户会自行重新拉镜像、重建 NAS 容器，不代为操作。
