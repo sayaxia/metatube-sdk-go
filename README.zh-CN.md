@@ -1,11 +1,12 @@
-# MetaTube SDK Go（LTX 分支）
+# metatube-server-ltx（MetaTube Server 个人分支）
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/sayaxia/metatube-sdk-go/release.yml?branch=main&style=flat-square&logo=github-actions&label=release)](https://github.com/sayaxia/metatube-sdk-go/actions/workflows/release.yml)
 [![Require Go Version](https://img.shields.io/badge/go-%3E%3D1.25-30dff3?style=flat-square&logo=go)](https://github.com/sayaxia/metatube-sdk-go/blob/main/go.mod)
 [![GitHub License](https://img.shields.io/github/license/sayaxia/metatube-sdk-go?color=e4682a&logo=apache&style=flat-square)](https://github.com/sayaxia/metatube-sdk-go/blob/main/LICENSE)
 [![Tag](https://img.shields.io/github/v/tag/sayaxia/metatube-sdk-go?color=%23ff8936&logo=fitbit&style=flat-square)](https://github.com/sayaxia/metatube-sdk-go/tags)
 
-> **这是 [metatube-community/metatube-sdk-go](https://github.com/metatube-community/metatube-sdk-go) 的个人分支（fork，版本号 `v1.4.0-ltx.N`）**，维护于
+> **这是 [metatube-community/metatube-sdk-go](https://github.com/metatube-community/metatube-sdk-go) 的个人分支（fork），
+> 已独立成项目 `metatube-server-ltx`，版本号自成一系（`v4.N`，不再跟随上游的 `v1.4.0-ltx.N`）**，维护于
 > [sayaxia/metatube-sdk-go](https://github.com/sayaxia/metatube-sdk-go)。
 > 相对上游增加：识别带 AI 修复后缀的文件名（如 `ABP-030-LTX.mp4`、`ABP-030__restored.mp4`），
 > 内置 Web 控制台、Windows 桌面面板、出站代理跟随、翻译引擎与凭据热重载等（详见下文）。
@@ -17,12 +18,14 @@ English version: [README.md](README.md)
 ## 目录
 
 - [这个分支解决什么问题](#这个分支解决什么问题)
-- [分支新增功能（v1.4.0-ltx.8 起）](#分支新增功能v140-ltx8-起)
+- [分支新增功能](#分支新增功能)
+- [版本号与发版](#版本号与发版)
 - [特性](#特性)
 - [安装](#安装)
     - [作为 Go SDK 使用](#作为-go-sdk-使用)
     - [Docker 部署（推荐）](#docker-部署推荐)
     - [离线安装](#离线安装)
+    - [Linux 裸二进制（不装 Docker）](#linux-裸二进制不装-docker)
     - [Windows 桌面版](#windows-桌面版)
 - [番号后缀归一化](#番号后缀归一化)
 - [构建](#构建)
@@ -30,7 +33,7 @@ English version: [README.md](README.md)
 - [致谢](#致谢)
 - [许可](#许可)
 
-## 分支新增功能（v1.4.0-ltx.8 起）
+## 分支新增功能
 
 - **内置控制台 `/ui`**：总览按番号聚合显示最近搜索（一行一个番号），点开有友好的详情弹窗；
   请求日志可读、查询串中的密钥自动打码、支持一键清空；提供自动翻译开关，
@@ -43,7 +46,24 @@ English version: [README.md](README.md)
 - **翻译**：新增百度大模型引擎 `baiduai`；凭据放在可执行文件同目录的 `translate.json`
   或 `MT_TRANSLATE_JSON` 环境变量（容器无需挂 volume），改动热重载；
   提供批量翻译接口与自动翻译开关（标题/演员/发售日期）。
-- **发版资产**：每个 tag 同时提供 Linux amd64/arm64 镜像与两个 Windows exe，详见 [FORK.md](FORK.md)。
+- **发版资产**：每个 tag 同时提供 Linux amd64/arm64 裸二进制包、Linux amd64/arm64 的
+  `docker load` 镜像包，以及 Windows x64 的服务端与桌面面板。
+
+## 版本号与发版
+
+本分支版本号**与上游彻底解耦**，`MAJOR` 固定为 4（承接上游 v1.4.0 的基线）：
+
+| 阶段 | 版本号 |
+| --- | --- |
+| 本地改动 | `4.0.1`、`4.0.2` …（PATCH 递增，只在本地） |
+| 推送 GitHub 发版 | `v4.1`、`v4.2` …（MINOR 递增、PATCH 归零） |
+
+发布后再改本地就是 `4.1.1`、`4.1.2` …，下次推送即 `4.2`。
+
+- 版本号唯一来源是仓库根的 `VERSION` 文件，`scripts/version.sh` 负责推进：
+  `bump`（本地改动 +1）、`release`（升到下一个发布版本并提交）。
+- 镜像标签：`:4.1`（本轮版本号）+ `:latest`；旧的 `:ltx` 自 v4.1 起**停止更新**。
+- 每次发版的更新说明只写本轮改动，放在 `notes/<版本>.md`；CI 缺这个文件会直接失败。
 
 ## 这个分支解决什么问题
 
@@ -70,7 +90,7 @@ MetaTube 在检索前会对文件名做番号归一化，但原逻辑只剥离 `
 该修复已作为 PR 提交上游：[#388](https://github.com/metatube-community/metatube-sdk-go/pull/388)；
 上游合并后即可直接用官方镜像，无需继续使用本分支。
 
-> **另外（`v1.4.0-ltx.2` 起）**：FC2 官方把付费作品详情页改成了「必须登录」，
+> **另外**：FC2 官方把付费作品详情页改成了「必须登录」，
 > 未登录访问会 302 到登录页并最终 404，导致**所有** `FC2-PPV-*` 番号刮不到（与 `-LTX` 无关）。
 > 本分支已同步上游的 `FC2DB` provider（数据源 `fc2db.net`）作为兜底，
 > 现象与细节见 [FORK.md](FORK.md#fc2-番号刮不到2026-11-起)。
@@ -107,7 +127,7 @@ go get -u github.com/metatube-community/metatube-sdk-go
 如需使用本分支的修复，可在 `go.mod` 中替换为本地源码或本仓库路径：
 
 ```
-replace github.com/metatube-community/metatube-sdk-go => github.com/sayaxia/metatube-sdk-go v1.4.0-ltx.1
+replace github.com/metatube-community/metatube-sdk-go => github.com/sayaxia/metatube-sdk-go v4.1
 ```
 
 ### Docker 部署（推荐）
@@ -117,7 +137,7 @@ replace github.com/metatube-community/metatube-sdk-go => github.com/sayaxia/meta
 ```bash
 docker run -d --name metatube -p 8080:8080 \
   -v metatube-data:/data \
-  ghcr.io/sayaxia/metatube-server:ltx \
+  ghcr.io/sayaxia/metatube-server:latest \
   -dsn /data/metatube.db -port 8080
 ```
 
@@ -126,7 +146,7 @@ docker run -d --name metatube -p 8080:8080 \
 ```yaml
 services:
   metatube:
-    image: ghcr.io/sayaxia/metatube-server:ltx
+    image: ghcr.io/sayaxia/metatube-server:latest
     container_name: metatube
     ports:
       - "8080:8080"
@@ -144,8 +164,9 @@ docker compose pull && docker compose up -d
 
 | 标签 | 含义 |
 | --- | --- |
-| `ltx` | 本分支最新构建（跟随 `main`） |
-| `1.4.0-ltx.1` | 固定版本，生产环境建议锁定 |
+| `latest` | 最新一次发布版本（跟随 tag，不跟 `main`） |
+| `4.1` | 固定版本号，生产环境建议锁定 |
+| `dev` | `main` 上每次提交的构建，仅供自测 |
 
 `docker-compose.yaml` 中的上游写法（如需回到官方）：`ghcr.io/metatube-community/metatube-server:latest`。
 
@@ -154,7 +175,7 @@ docker compose pull && docker compose up -d
 Releases 页面提供 `docker load` 可用的镜像包，适用于无法访问 GHCR 的内网环境：
 
 ```bash
-# amd64（<VER> 换成实际版本号，如 1.4.0-ltx.9）
+# amd64（<VER> 换成实际版本号，如 4.1）
 gunzip -c metatube-server-<VER>-linux-amd64.tar.gz | docker load
 # arm64
 gunzip -c metatube-server-<VER>-linux-arm64.tar.gz | docker load
@@ -167,6 +188,17 @@ docker images | grep metatube-server   # metatube-server:<VER>
 
 ```bash
 sha256sum -c metatube-server-<VER>-linux-amd64.tar.gz.sha256
+```
+
+### Linux 裸二进制（不装 Docker）
+
+Release 里另有 `metatube-server-<VER>-linux-amd64-bin.tar.gz` 与 `-arm64-bin.tar.gz`，
+解压即得静态编译的服务端（含 `LICENSE`、`VERSION`）：
+
+```bash
+tar -xzf metatube-server-<VER>-linux-amd64-bin.tar.gz
+./metatube-server -version          # 显示 <VER>
+./metatube-server -dsn ./metatube.db -port 8080
 ```
 
 ### Windows 桌面版
@@ -217,10 +249,13 @@ curl 'http://127.0.0.1:8080/v1/movies/search?q=ABP-030-LTX&provider=javbus'
 
 ## 构建
 
+版本号由仓库根的 `VERSION` 文件决定（本地开发如 `4.0.1`，发布时如 `4.1.0`）：
+
 ```bash
-# 本地编译（注入分支版本号）
+# 本地编译（版本号自动读 VERSION）
+VERSION=$(tr -d ' \r\n' < VERSION)
 go build -trimpath \
-  -ldflags "-X github.com/metatube-community/metatube-sdk-go/internal/version.Version=1.4.0-ltx.1" \
+  -ldflags "-X github.com/metatube-community/metatube-sdk-go/internal/version.Version=$VERSION" \
   -o metatube-server ./cmd/server
 
 ./metatube-server -version
@@ -228,15 +263,27 @@ go build -trimpath \
 
 ```bash
 # 构建镜像
-docker build -t metatube-server:1.4.0-ltx.1 \
-  --build-arg VERSION=1.4.0-ltx.1 \
+VERSION=$(tr -d ' \r\n' < VERSION)
+docker build -t metatube-server:$VERSION \
+  --build-arg VERSION=$VERSION \
   --build-arg COMMIT=$(git rev-parse --short HEAD) .
 ```
 
-打 tag（形如 `v1.4.0-ltx.2`）并推送后，GitHub Actions 会自动：
+发版流程（`scripts/version.sh` 会做版本校验，CI 会拒绝不自洽的 tag）：
 
-1. 构建 `linux/amd64` 与 `linux/arm64` 镜像并推送到 `ghcr.io/sayaxia/metatube-server`；
-2. 导出两个架构的 `docker load` 镜像包，附 `docker-compose.yml`、`INSTALL.md` 与 `.sha256`，发布到 Releases。
+```bash
+bash scripts/version.sh bump                 # 本地改动：4.0.0 → 4.0.1
+bash scripts/version.sh release --tag        # 发布：4.0.1 → 4.1.0，本地打 tag v4.1
+git push mine main && git push mine v4.1     # 需用户明确同意后再推
+```
+
+推 tag 后 GitHub Actions 会自动：
+
+1. 构建 `linux/amd64` 与 `linux/arm64` 镜像并推送到 `ghcr.io/sayaxia/metatube-server`
+   （标签 `:<版本>` 与 `:latest`）；
+2. 编译 Linux amd64/arm64 裸二进制、导出两个架构的 `docker load` 镜像包、交叉编译
+   Windows x64 的两个 exe，连同 `docker-compose.yml`、`INSTALL.md`、`.sha256` 发布到 Releases；
+3. Release 说明只取 `notes/<版本>.md` 的**本轮**内容。
 
 ## 与上游同步
 
@@ -246,7 +293,8 @@ git fetch upstream --tags
 git rebase upstream/main        # 或 git merge upstream/main
 ```
 
-同步后把版本号推进为 `v1.4.x-ltx.N`，打 tag 即可产出对应的新 Release。
+同步上游只涉及代码，版本号继续按本项目自己的节奏推进（本地 `4.1.x` → 发布 `4.2`），
+不再跟随上游 tag 命名。
 若上游已合并 [#388](https://github.com/metatube-community/metatube-sdk-go/pull/388)，
 本分支即可退役，直接切回官方镜像。
 

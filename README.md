@@ -1,4 +1,4 @@
-# MetaTube SDK Go
+# metatube-server-ltx
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/sayaxia/metatube-sdk-go/release.yml?branch=main&style=flat-square&logo=github-actions&label=release)](https://github.com/sayaxia/metatube-sdk-go/actions/workflows/release.yml)
 [![Go Linter](https://img.shields.io/github/actions/workflow/status/metatube-community/metatube-sdk-go/linter.yml?style=flat-square&branch=main&logo=githubactions&label=golangci-lint)](https://github.com/metatube-community/metatube-sdk-go/actions/workflows/linter.yml)
@@ -10,8 +10,10 @@
 
 Metadata Tube SDK in Golang.
 
-> **This is a personal fork (`v1.4.0-ltx.N`)** of the upstream project, maintained at
-> [sayaxia/metatube-sdk-go](https://github.com/sayaxia/metatube-sdk-go). It adds support for
+> **This is a personal fork, versioned independently as `v4.N`** (project name
+> `metatube-server-ltx`), maintained at
+> [sayaxia/metatube-sdk-go](https://github.com/sayaxia/metatube-sdk-go) and based on upstream
+> v1.4.0. It adds support for
 > AI-restored releases whose file names carry a restoration suffix (`-LTX`, `-BasicVSR++`,
 > `-restored` / `__restored`), e.g. `ABP-030-LTX` or `ABP-030__restored`. All of these
 > suffixes denote the same uncensored release and are trimmed back to the bare number
@@ -20,7 +22,7 @@ Metadata Tube SDK in Golang.
 > See [FORK.md](FORK.md) for the full delta, versioning scheme and Docker instructions.
 > Upstream remains the source of truth for everything else.
 
-## Fork highlights (since v1.4.0-ltx.8)
+## Fork highlights
 
 - **Built-in console at `/ui`** — recent searches grouped by title with friendly detail
   popups, per-request logs with secrets redacted, one-click clear, and an auto-translate
@@ -34,13 +36,27 @@ Metadata Tube SDK in Golang.
 - **Translation** — adds the Baidu LLM engine `baiduai`; credentials live next to the
   executable in `translate.json` or in `MT_TRANSLATE_JSON` (no Docker volume needed),
   hot-reloaded on change. A batch endpoint and UI toggle translate titles/cast/release date.
-- **Downloads** — every tagged release ships Linux amd64/arm64 Docker images plus the two
-  Windows executables. See [FORK.md](FORK.md) for details.
+- **Downloads** — every tagged release (`v4.1`, `v4.2`, …) ships Linux amd64/arm64 static
+  binaries, matching `docker load` image tarballs, and the two Windows x64 executables.
+
+## Versioning
+
+This fork numbers itself independently of upstream:
+
+| Stage | Version |
+| --- | --- |
+| local change | `4.0.1`, `4.0.2`, … (patch increments) |
+| GitHub release | `v4.1`, `v4.2`, … (minor increments, patch back to 0) |
+
+`VERSION` at the repo root is the single source of truth; `scripts/version.sh` bumps it —
+`bump` for a local change, `release` for a tagged release. GHCR images are published as both
+`:<version>` (e.g. `4.1`) and `:latest`; the old `:ltx` alias no longer moves.
 
 ## Contents
 
 - [MetaTube SDK Go](#metatube-sdk-go)
-    - [Fork highlights](#fork-highlights-since-v140-ltx8)
+    - [Fork highlights](#fork-highlights)
+    - [Versioning](#versioning)
     - [Contents](#contents)
     - [Features](#features)
     - [Installation](#installation)

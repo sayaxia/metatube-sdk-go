@@ -1,12 +1,32 @@
-# MetaTube SDK Go — LTX Fork
+# metatube-server-ltx
 
 本仓库是 [metatube-community/metatube-sdk-go](https://github.com/metatube-community/metatube-sdk-go)
 的个人维护分支（fork），用于解决 AI 马赛克修复视频无法自动刮削的问题。
 
 - 上游基线版本：**v1.4.0**（commit `fdadc9c`），另已同步 `main` 上尚未发版的 `FC2DB` provider（上游提交 `59ac7f2`）
-- 本分支版本号：**v1.4.0-ltx.N**（`N` 为本地修订号，与上游 tag 严格区分）
+- 项目名：**metatube-server-ltx**，版本号与上游彻底解耦：**`v4.N`**（规则见下节）
+- Docker 镜像：`ghcr.io/sayaxia/metatube-server:4.1`（固定版本）/ `:latest`（最新发布）
 - 番号修复的上游 PR：[metatube-community/metatube-sdk-go#388](https://github.com/metatube-community/metatube-sdk-go/pull/388)
-- Docker 镜像：`ghcr.io/sayaxia/metatube-server:<version>` / `ghcr.io/sayaxia/metatube-server:ltx`
+
+## 版本号与发版
+
+`MAJOR` 固定为 4（承接上游 v1.4.0 的基线），`MINOR` / `PATCH` 按下面的节奏走：
+
+| 阶段 | 版本号 | 说明 |
+| --- | --- | --- |
+| 本地改动 | `4.0.1`、`4.0.2` … | 每改一轮 PATCH +1，只存在于本地 |
+| 推送发版 | `v4.1`、`v4.2` … | MINOR +1、PATCH 归零，打**两点式** tag |
+
+发布后本地基线变成 `4.1.0`，继续改就是 `4.1.1`、`4.1.2` …，下次发布即 `4.2`。
+
+- **唯一来源**：仓库根 `VERSION`。`scripts/version.sh` 提供 `show` / `bump` / `release` / `verify`
+  四个子命令，`release` 会自动校验 `notes/<版本>.md` 是否存在。
+- **tag**：`v4.1`（两点式，不带 PATCH）；镜像 tag 不带 `v`。
+- **镜像标签**：`:<版本>` + `:latest`；旧 `:ltx` 自 v4.1 起**停止更新**（历史镜像仍可拉取）。
+- **发布说明**：只写本轮改动，放在 `notes/<版本>.md`；CI 缺这个文件会直接失败，
+  不会出现"沿用上版说明"的情况。
+- **发布产物**：Linux amd64/arm64 裸二进制包、Linux amd64/arm64 的 `docker load` 镜像包、
+  Windows x64 服务端与面板，外加 `docker-compose.yml` / `INSTALL.md` / `.sha256`。
 
 > **改动本仓库前请先读 [`AGENTS.md`](AGENTS.md)**（协作规约、目录地图、验证清单、发版流程，
 > 含多智能体协作规则），改完在 [`AGENT_LOG.md`](AGENT_LOG.md) 末尾追加一条记录。
@@ -20,8 +40,9 @@
 | 同步上游 `FC2DB` provider | FC2 官方详情页改为强制登录后，用 `fc2db.net` 兜底，恢复 FC2-PPV 番号刮削 | ✅ 上游已合并（#389），本分支同步 |
 | `Dockerfile` | 支持通过 build-arg 注入 `VERSION` / `COMMIT`，保证镜像内 `-version` 显示分支版本 | ❌ 仅本分支 |
 | 镜像默认 `-tags experimental` | 编入实验池 provider（AVBASE / ThePornDB / AV-LEAGUE），见下节 | ❌ 仅本分支 |
-| `.github/workflows/docker.yml` | 推送到本仓库 GHCR 命名空间（上游固定为 `metatube-community`，fork 无权限） | ❌ 仅本分支 |
-| `.github/workflows/release.yml` | tag 触发构建 `docker load` 可用的镜像包并发布到 Releases | ❌ 仅本分支 |
+| `.github/workflows/docker.yml` | 推送到本仓库 GHCR 命名空间（上游固定为 `metatube-community`，fork 无权限）；发布版打 `:<版本>` + `:latest` | ❌ 仅本分支 |
+| `.github/workflows/release.yml` | tag 触发：编译 Linux amd64/arm64 裸二进制、导出两个架构的 `docker load` 镜像包、交叉编译 Windows x64 两个 exe，按 `notes/<版本>.md` 生成本轮说明并发布 Releases | ❌ 仅本分支 |
+| `VERSION` / `scripts/version.sh` / `notes/` | 独立版本号体系（`4.x`，发布 = MINOR+1）与每轮发布说明；tag 为两点式 `v4.1` | ❌ 仅本分支 |
 | `docker-compose.yaml` | 默认使用本分支镜像与本地 SQLite | ❌ 仅本分支 |
 | `translate/baiduai` translator | 新增百度**大模型文本翻译**（AIT）引擎：端点 `fanyi-api.baidu.com/ait/api/aiTextTranslate`，与旧 `baidu` 引擎共用同一 APPID/密钥的 sign 鉴权与返回格式，参数键名一致（`baidu-app-id` / `baidu-app-key`，可选 `baidu-model-type=nmt|llm`，默认 `nmt`）。它是有独立免费额度的商品，通用翻译额度耗尽时可切换 | ❌ 仅本分支 |
 | `route/translateconfig.go` | 控制台的翻译引擎凭据落在服务端 `translate.json`（热重载、密钥回打码值），暴露私有接口 `GET/PUT /v1/translate/config`；顺带把 `error_code` 改成同时接受字符串与数字，`<engine>: <错误原文>` 不再被解码失败吃掉 | ❌ 仅本分支 |
@@ -80,7 +101,7 @@ MetaTube 原有的番号清洗逻辑只剥离 `-C`、`-UC`、`-ch`、`-cdN`、`-
 排在 `FC2`、`fc2hub`、`FC2PPVDB` 之后，只在前面全部失败时兜底，因此不会改变已有的正常结果。
 
 ```bash
-# 验证（v1.4.0-ltx.2 起）
+# 验证
 curl 'http://127.0.0.1:8080/v1/movies/search?q=FC2-PPV-4985867'
 # {"data":[{"id":"4985867","number":"FC2-4985867","provider":"FC2DB", ...}]}
 ```
@@ -141,7 +162,7 @@ docker logs metatube 2>&1 | grep 'Disable movie provider'  # 被停用的 provid
 ```bash
 docker run -d --name metatube -p 8080:8080 \
   -v metatube-data:/data \
-  ghcr.io/sayaxia/metatube-server:ltx \
+  ghcr.io/sayaxia/metatube-server:latest \
   -dsn /data/metatube.db -port 8080
 ```
 
@@ -153,7 +174,7 @@ DSM 6 的 Docker 套件停留在 **18.09.8 + docker-compose 1.24**，有四个�
 | --- | --- |
 | 没有 `docker compose` 子命令 | 用 `docker-compose`（v1） |
 | compose v1 缺 `version:` 会按 legacy 格式解析而报错 | Release 里的 `docker-compose.yml` 已带 `version: "3.8"` |
-| Docker 18.09 不认 OCI index，pull 会报 `no matching manifest` / `unsupported media type` | 自 `v1.4.0-ltx.4` 起镜像以 Docker manifest list 发布（`oci-mediatypes=false`），18.09 可正常 pull |
+| Docker 18.09 不认 OCI index，pull 会报 `no matching manifest` / `unsupported media type` | 本分支所有镜像均以 Docker manifest list 发布（`oci-mediatypes=false`），18.09 可正常 pull |
 | GUI 只能导入未压缩 `.tar`，且注册表搜不到 ghcr.io | 离线包先 `gunzip -c x.tar.gz > x.tar` 再导入，或 SSH 里 `docker load -i x.tar.gz` |
 
 
@@ -431,7 +452,7 @@ DELETE /v1/logs                        # 清空，seq 保持单调递增，不�
 配套的 `/v1/status` 是**私有**接口（`/v1/status`，需 token），返回控制台用的运行时信息：
 
 ```json
-{"data":{"app":"metatube","version":"1.4.0-ltx.8","uptime_seconds":7,
+{"data":{"app":"metatube","version":"4.1","uptime_seconds":7,
          "db_driver":"sqlite","go_version":"go1.27.3","goos":"windows","goarch":"amd64",
          "num_cpu":16,"proxy":"http://127.0.0.1:7898 (via Windows Internet Settings; 24 bypass rule(s))",
          "proxy_active":true,"movie_providers":34,"actor_providers":3,"modules":97}}
@@ -517,4 +538,4 @@ git fetch upstream --tags
 git rebase upstream/main   # 或 merge
 ```
 
-同步后把版本号推进为 `v1.4.x-ltx.N`，打 tag 即自动产出新的 Release 资产。
+同步上游只涉及代码，版本号继续按本项目节奏推进（本地 `4.1.x` → 发布 `4.2`），不再跟随上游 tag 命名。

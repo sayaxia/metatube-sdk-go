@@ -1,4 +1,11 @@
-name: Release Package (LTX Fork)
+name: Release (metatube-server-ltx)
+
+# 每个 tag `v<MAJOR>.<MINOR>`（如 v4.1）产出：
+#   - Linux amd64 / arm64 裸二进制包（tar.gz，含 LICENSE + VERSION）
+#   - Linux amd64 / arm64 docker load 镜像包
+#   - Windows x64 服务端 + 桌面面板
+#   - docker-compose.yml / INSTALL.md / sha256
+# 版本号规则见 scripts/version.sh 与 FORK.md「版本号与发版」一节。
 
 concurrency:
   group: release-${{ github.event_name }}-${{ github.ref }}
@@ -11,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Existing tag to package (e.g. v1.4.0-ltx.1)'
+        description: 'Existing tag to package (e.g. v4.1)'
         required: true
 
 permissions:
@@ -34,11 +41,14 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.inputs.tag || github.ref }}
 
-      - name: Resolve version
+      - name: Resolve and verify version
         id: vars
         run: |
+          set -euo pipefail
           TAG="${{ github.event.inputs.tag }}"
           if [ -z "${TAG}" ]; then TAG="${GITHUB_REF_NAME}"; fi
+          # tag 必须两点式（v4.1），且与 VERSION 文件、notes/<ver>.md 自洽。
+          bash scripts/version.sh verify "${TAG}"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
           echo "commit=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
@@ -101,6 +111,58 @@ jobs:
             metatube-server-*.tar.gz.sha256
           if-no-files-found: error
 
+  linux:
+    name: Linux binary (${{ matrix.arch }})
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          check-latest: true
+          go-version-file: 'go.mod'
+
+      - name: Build binary
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          COMMIT: ${{ needs.prepare.outputs.commit }}
+        run: |
+          set -euo pipefail
+          module="github.com/metatube-community/metatube-sdk-go"
+          base="-s -w -buildid= -X $module/internal/version.Version=$VERSION -X $module/internal/version.GitCommit=$COMMIT"
+          mkdir -p dist pkg
+          CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.arch }} go build -tags experimental -trimpath \
+            -ldflags "$base" -o pkg/metatube-server ./cmd/server
+          # VERSION 环境变量会让 -version 开关失效（见 cmd/server/main.go），必须清掉再跑。
+          if [ "${{ matrix.arch }}" = "amd64" ]; then
+            env -u VERSION ./pkg/metatube-server -version
+          fi
+          cp LICENSE VERSION pkg/
+          NAME="metatube-server-${VERSION}-linux-${{ matrix.arch }}-bin"
+          tar -C pkg -czf "dist/${NAME}.tar.gz" metatube-server LICENSE VERSION
+          sha256sum "dist/${NAME}.tar.gz" > "dist/${NAME}.tar.gz.sha256"
+          file pkg/metatube-server
+          ls -lh dist
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.arch }}
+          path: |
+            dist/metatube-server-*.tar.gz
+            dist/metatube-server-*.tar.gz.sha256
+          if-no-files-found: error
+
   windows:
     name: Windows binaries
     needs: prepare
@@ -118,6 +180,7 @@ jobs:
           check-latest: true
           go-version-file: 'go.mod'
 
+      # windows-latest runner 会无日志卡死（实测 20+ 分钟），统一在 ubuntu 交叉编译。
       - name: Build Windows binaries (cross-compile)
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
@@ -143,11 +206,13 @@ jobs:
 
   release:
     name: Publish Release
-    needs: [prepare, image, windows]
+    needs: [prepare, image, linux, windows]
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
         uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
 
       - name: Download amd64 image
         uses: actions/download-artifact@v4
@@ -161,13 +226,25 @@ jobs:
           name: image-arm64
           path: dist
 
+      - name: Download amd64 binary
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-amd64
+          path: dist
+
+      - name: Download arm64 binary
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-arm64
+          path: dist
+
       - name: Download Windows binaries
         uses: actions/download-artifact@v4
         with:
           name: windows-binaries
           path: dist
 
-      - name: Generate compose file and instructions
+      - name: Generate compose, instructions and release notes
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
           TAG: ${{ needs.prepare.outputs.tag }}
@@ -175,10 +252,14 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
+          mkdir -p dist
           IMAGE="ghcr.io/${OWNER}/metatube-server:${VERSION}"
+          ROUND="notes/${VERSION}.md"
+          # 本轮更新说明必须单独存在，缺失即失败（防止把历史内容带进本版说明）。
+          [ -f "${ROUND}" ] || { echo "missing ${ROUND}" >&2; exit 1; }
 
           cat > dist/docker-compose.yml <<EOF
-          # MetaTube Server (LTX fork) ${TAG}
+          # metatube-server-ltx ${TAG}
           # version 为兼容 docker-compose v1（DSM 6、旧版 Linux）保留，compose v2 会忽略并提示 obsolete
           version: "3.8"
 
@@ -197,7 +278,7 @@ jobs:
           EOF
 
           cat > dist/INSTALL.md <<EOF
-          # MetaTube Server ${TAG} 安装说明
+          # metatube-server-ltx ${TAG} 安装说明
 
           ## 方式一：离线加载镜像包（内网 / DSM 6 推荐）
 
@@ -225,24 +306,33 @@ jobs:
           docker-compose pull && docker-compose up -d        # v1
           \`\`\`
 
-          用离线包又想让 compose 跑起来，先打个别名，再把 compose 里的 image 改成同名：
-
-          \`\`\`bash
-          docker tag metatube-server:${VERSION} metatube-server:ltx
-          # 之后 image: metatube-server:ltx，且不要再执行 pull
-          \`\`\`
+          用离线包又想让 compose 跑起来：把 compose 里的 \`image\` 改成 \`metatube-server:${VERSION}\`，
+          之后不要再执行 \`pull\`。
 
           ## 方式三：直接拉取 GHCR 镜像（多架构）
 
           \`\`\`bash
-          docker pull ${IMAGE}
+          docker pull ${IMAGE}                 # 固定版本
+          docker pull ghcr.io/${OWNER}/metatube-server:latest   # 跟随最新发布
           docker run -d --name metatube -p 8080:8080 -v metatube-data:/data ${IMAGE}
           \`\`\`
 
           > 若 GHCR 包为私有，请先执行 \`docker login ghcr.io\`，或在 GitHub 的
           > Package settings 中把该包改为 Public。
+          > 旧的 \`:ltx\` 标签自 v4.1 起停止更新，请改用 \`:latest\` 或固定版本号。
 
-          ## 方式四：Windows 桌面版（无需 Docker）
+          ## 方式四：Linux 裸二进制（不装 Docker）
+
+          \`\`\`bash
+          tar -xzf metatube-server-${VERSION}-linux-amd64-bin.tar.gz
+          ./metatube-server -version                       # 应显示 ${VERSION}
+          ./metatube-server -dsn ./metatube.db -port 8080
+          \`\`\`
+
+          arm64 机器把文件名换成 \`-arm64-bin.tar.gz\`。二进制是静态编译（\`CGO_ENABLED=0\`），
+          可直接在 DSM / 任意 Linux 上跑；首次运行会在同目录建 SQLite 库。
+
+          ## 方式五：Windows 桌面版（无需 Docker）
 
           下载 \`metatube-server.exe\` 与 \`metatube-panel.exe\`，放在**同一目录**：
           - \`metatube-panel.exe\`：图形面板，双击启动，自动托管服务、可开关/重启，
@@ -267,48 +357,39 @@ jobs:
           ## 验证
 
           \`\`\`bash
-          docker exec metatube /metatube-server -version   # 应显示 ${TAG}
+          docker exec metatube /metatube-server -version   # 应显示 ${VERSION}
           curl 'http://127.0.0.1:8080/v1/movies/search?q=ABP-030-LTX' | head -c 300
           \`\`\`
 
-          本版本相对上游 v1.4.0 的改动见 \`FORK.md\`。
+          本文件的版本号与分支差异说明见 \`FORK.md\`。
           EOF
 
-          cat > dist/RELEASE_NOTES.md <<EOF
-          ## MetaTube Server ${TAG}
-
-          基于上游 [metatube-community/metatube-sdk-go](https://github.com/metatube-community/metatube-sdk-go) v1.4.0 的个人构建版本。
-
-          ### 本版改动
-          - **内置控制台 \`/ui\`**：总览显示最近搜索（同番号聚合成一行）、成功与否、来源与结果；
-            点开有友好的详情弹窗；请求日志可按番号阅读、查询串里的密钥自动打码；支持一键清空。
-          - **Windows 桌面面板 \`metatube-panel.exe\`**：WebView2 窗口 + 系统托盘，自动启动/停止/重启
-            服务，关闭窗口与最小化都进托盘，右键退出会一并关服务；窗口与托盘使用官方 logo 图标，
-            并设置进程 DPI 感知保证字体清晰。可与 \`metatube-server.exe\` 放同目录独立运行。
-          - **出站代理**：默认跟随系统代理设置（Windows 读注册表、Linux/Docker 读环境变量），
-            可用 \`MT_PROXY_URL\` 覆盖；同时修复 colly 系 provider 绕过代理导致抓空的问题。
-          - **翻译**：新增百度大模型引擎 \`baiduai\`；翻译引擎凭据改由可执行文件同目录
-            \`translate.json\` 或 \`MT_TRANSLATE_JSON\` 环境变量提供（容器无需挂 volume），
-            支持热重载；控制台提供自动翻译开关与批量翻译接口 \`/v1/translate/batch\`。
-          - **番号归一化**：检索前循环剥离 AI 修复 / 去水印工具尾部标记 \`ltx\`、\`restored\`、
-            \`basicvsr++\`、\`wm\` 及原有后缀，叠加顺序无关，归一化为裸番号后再查。
-          - 镜像以 \`-tags experimental\` 构建，编入实验池 provider；启用上述控制台新接口。
-
-          ### 资产说明
-          | 文件 | 说明 |
-          | --- | --- |
-          | \`metatube-server-${VERSION}-linux-amd64.tar.gz\` | amd64 \`docker load\` 镜像包 |
-          | \`metatube-server-${VERSION}-linux-arm64.tar.gz\` | arm64 \`docker load\` 镜像包 |
-          | \`metatube-server.exe\` | Windows 服务端本体 |
-          | \`metatube-panel.exe\` | Windows 桌面面板（含服务托管） |
-          | \`docker-compose.yml\` | 开箱即用的 compose 文件 |
-          | \`INSTALL.md\` | 安装与验证步骤 |
-          | \`*.sha256\` | 校验文件 |
-
-          GHCR: \`${IMAGE}\`
-
-          构建日志：${RUN_URL}
-          EOF
+          {
+            echo "## metatube-server-ltx ${TAG}"
+            echo
+            echo "镜像标签 \`${VERSION}\` 与 \`latest\`；旧的 \`:ltx\` 不再更新。"
+            echo
+            echo "### 本轮改动"
+            echo
+            cat "${ROUND}"
+            echo
+            echo "### 资产说明"
+            echo "| 文件 | 说明 |"
+            echo "| --- | --- |"
+            echo "| \`metatube-server-${VERSION}-linux-amd64-bin.tar.gz\` | Linux amd64 裸二进制（解压即用） |"
+            echo "| \`metatube-server-${VERSION}-linux-arm64-bin.tar.gz\` | Linux arm64 裸二进制 |"
+            echo "| \`metatube-server-${VERSION}-linux-amd64.tar.gz\` | amd64 \`docker load\` 镜像包 |"
+            echo "| \`metatube-server-${VERSION}-linux-arm64.tar.gz\` | arm64 \`docker load\` 镜像包 |"
+            echo "| \`metatube-server.exe\` | Windows x64 服务端本体 |"
+            echo "| \`metatube-panel.exe\` | Windows x64 桌面面板（含服务托管） |"
+            echo "| \`docker-compose.yml\` | 开箱即用的 compose 文件 |"
+            echo "| \`INSTALL.md\` | 安装与验证步骤 |"
+            echo "| \`*.sha256\` | 校验文件 |"
+            echo
+            echo "GHCR: \`ghcr.io/${OWNER}/metatube-server:${VERSION}\` / \`:latest\`"
+            echo
+            echo "构建日志：${RUN_URL}"
+          } > dist/RELEASE_NOTES.md
 
           ls -lh dist
 
@@ -316,7 +397,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.prepare.outputs.tag }}
-          name: MetaTube Server ${{ needs.prepare.outputs.tag }} (LTX Fork)
+          name: metatube-server-ltx ${{ needs.prepare.outputs.tag }}
           body_path: dist/RELEASE_NOTES.md
           files: |
             dist/metatube-server-*.tar.gz

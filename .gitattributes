@@ -1,0 +1,10 @@
+# 统一换行：脚本与版本号文件必须保持 LF，否则 Git Bash / CI 里的 shebang 与
+# `tr -d` 会被 CR 影响。
+# 注意：刻意不写 `* text=auto`——那会让 Git 重新规范化历史文件，产生巨大 diff。
+*.sh text eol=lf
+VERSION text eol=lf
+
+# 二进制资源：图标与 Go 的 Windows 资源对象（.syso 内含 PE 结构，不能做换行转换）
+*.syso binary
+*.ico binary
+*.png binary

@@ -6,8 +6,10 @@ SERVER_CODE := cmd/server/main.go
 BUILD_DIR     := build
 BUILD_TAGS    :=
 BUILD_FLAGS   := -v
-BUILD_COMMIT  := $(shell git rev-parse --short HEAD)
-BUILD_VERSION := $(shell git describe --abbrev=0 --tags HEAD | cut -d'v' -f 2)
+BUILD_COMMIT  := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+# 版本号唯一来源是仓库根的 VERSION 文件（本地 4.0.1、发布 4.1.0）。
+# 命令行的 BUILD_VERSION= 优先级最高（Dockerfile / CI 都这样传）；无 git 历史时兜底 unknown。
+BUILD_VERSION := $(or $(shell cat VERSION 2>/dev/null),$(shell git describe --abbrev=0 --tags HEAD 2>/dev/null | sed 's/^v//'),unknown)
 
 CGO_ENABLED := 0
 GO111MODULE := on

@@ -74,3 +74,38 @@
 - 部署/发版：无，仅目录与文档调整。
 - 待办/风险：旧工作区遗留 `tools/go`（268 MB 便携 Go）未删，择机清理；
   若还有脚本写死旧路径，需同步修正。
+
+## 2026-11-16 23:05 · WorkBuddy · 版本号体系独立（4.x）+ CI 三平台产物 + 本轮说明
+
+- 改动：
+  - 版本号与上游彻底解耦：仓库根新增 `VERSION`（当前 `4.0.0`）作为唯一来源。本地改动 PATCH +1
+    （4.0.1、4.0.2 …），推送发版 MINOR +1、PATCH 归零 → `4.1.0`，tag 为**两点式** `v4.1`；
+    发布后本地再改即 4.1.1、4.1.2 …，下次发版 4.2。旧编号 `v1.4.0-ltx.N` 停用。
+  - 新增 `scripts/version.sh`：`show` / `bump` / `release` / `verify`。`release` 会校验
+    `notes/<版本>.md` 存在，缺失时生成模板并中止；默认只做本地提交，`--tag` 才打 tag，
+    `--push` 才推送（铁律：不擅自推送）。
+  - 新增 `notes/` 目录：每个发布版本一个文件，只写本轮改动；`release.yml` 在 Prepare 阶段
+    调 `version.sh verify` 校验 tag / VERSION / notes 三者自洽，不自洽直接失败。
+  - `release.yml` 增加 `linux` 矩阵 job（amd64/arm64），编译静态二进制并打成
+    `metatube-server-<版本>-linux-<arch>-bin.tar.gz`（含 LICENSE、VERSION、`.sha256`）；
+    Release 说明改为「标题 + 本轮改动（notes）+ 资产表 + GHCR」，不再硬编码历史功能清单。
+  - `docker.yml`：发布版标签改为 `:<版本>` + `:latest`，**去掉 `:ltx`**；`:dev` 版本串改为
+    `dev-<VERSION 文件>-<短 sha>`。仓库 `docker-compose.yaml` 的镜像同步改成 `:latest`。
+  - `Makefile` / `_tools/build-win.sh` 的版本号改为读 `VERSION` 文件（git describe 只作兜底）。
+  - 新增 `.gitattributes`：`*.sh` 与 `VERSION` 强制 LF，`.syso`/`.ico`/`.png` 标记二进制。
+  - 文档：`README.md` / `README.zh-CN.md` 头部说明、版本号章节、镜像标签表、离线安装、
+    构建与发版流程全部改写；`FORK.md` 新增「版本号与发版」章节并同步镜像标签；
+    `AGENTS.md` §2/§3/§4/§6/§9 同步。
+- 文件：`VERSION`、`.gitattributes`、`scripts/version.sh`、`notes/README.md`、`notes/4.1.md`、
+  `.github/workflows/{release,docker}.yml`、`Makefile`、`docker-compose.yaml`、
+  `README.md`、`README.zh-CN.md`、`FORK.md`、`AGENTS.md`、本日志；仓库外 `_tools/build-win.sh`。
+- 验证：`bash -n scripts/version.sh` 通过；`version.sh show` 输出 `4.0.0 → 4.0.1 / 发布 4.1`；
+  `version.sh verify v4.1` 正确拒绝（VERSION 不匹配），`verify v4.0` 亦拒绝（缺 notes/4.0.md）；
+  `mingw32-make -n server` 确认 ldflags 注入 `Version=4.0.0`；两个 workflow 用 PyYAML 解析通过
+  （jobs: prepare/image/linux/windows/release）；`go build ./...`、`GOOS=linux go build ./...` 通过。
+- 部署/发版：**未推送、未打 tag**（用户要求先不推）。首次按新体系发版应为 `v4.1`
+  （`notes/4.1.md` 已写好）。NAS 上的 compose 引用 `:ltx`，发版后需改成 `:latest` 或固定版本。
+- 待办/风险：
+  - 发 4.1 后 `:ltx` 停在旧镜像，任何仍引用它的部署不会自动更新。
+  - 本次改动与之前两个 docs 提交（`71ca427`、`bf2c2e9`）都还在本地。
+  - 插件仓库版本号按用户要求**暂不动**。

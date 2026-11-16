@@ -1,6 +1,6 @@
 services:
   metatube:
-    image: ghcr.io/sayaxia/metatube-server:ltx
+    image: ghcr.io/sayaxia/metatube-server:latest
     container_name: metatube
     ports:
       - "8080:8080"

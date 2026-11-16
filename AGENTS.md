@@ -43,10 +43,16 @@
 | `origin` | `metatube-community/metatube-sdk-go`（**上游，只读，不要往上推**） |
 | `mine` | `sayaxia/metatube-sdk-go`（**推这里**） |
 | 主分支 | `main`，跟踪 `mine/main` |
-| 当前版本 | `v1.4.0-ltx.9`（tag 已推，Release 已含 Windows exe） |
-| 镜像 | `ghcr.io/sayaxia/metatube-server`，标签 `:ltx` `:1.4.0-ltx.N` `:dev` |
+| 当前版本 | 仓库根 `VERSION` = `4.0.0`（本地开发版本）；旧编号 `v1.4.0-ltx.N` 已停用 |
+| 镜像 | `ghcr.io/sayaxia/metatube-server`，标签 `:<版本>` `:latest` `:dev` |
 
-**版本规则**：`:dev` 跟随 main push；`:ltx` 与 `v1.4.0-ltx.N` 只由 tag 触发。镜像 tag **不带 `v` 前缀**。
+**版本规则**（与上游彻底解耦，详见 §6）：
+
+- 本地改动：PATCH +1 → `4.0.0` → `4.0.1` → `4.0.2` …
+- 推送发版：MINOR +1、PATCH 归零 → `4.1.0`，tag **两点式** `v4.1`
+- `:dev` 跟随 main push；`:<版本>`（如 `:4.1`）与 `:latest` 只由 tag 触发；
+  旧的 `:ltx` 自 v4.1 起停止更新
+- 镜像 tag **不带 `v` 前缀**
 
 **目录布局**（`C:/Script/metatube/` 下）：
 
@@ -77,7 +83,10 @@ _tools/                  build-win.sh 构建脚本、metatube-win/ exe 运行时
 | `internal/iconres/` | 应用图标：ICO 母版、解析器、`gen-icon.py`（可复现生成） |
 | `cmd/{server,panel}/icon_windows_amd64.syso` | 编进 exe 的图标资源，仅 windows/amd64 自动链接 |
 | `engine/init.go` | 启动时 `fetch.InstallDefaultTransport()`（colly 也走代理的关键） |
-| `.github/workflows/` | `docker.yml`（main→`:dev`）、`release.yml`(tag→镜像+exe+Release)、`test.yml`、`linter.yml`、`codeql-analysis.yml` |
+| `.github/workflows/` | `docker.yml`（main→`:dev`，tag→`:<版本>`+`:latest`）、`release.yml`(tag→镜像+Linux 二进制+exe+Release)、`test.yml`、`linter.yml`、`codeql-analysis.yml` |
+| `VERSION` | 版本号唯一来源（本地 `4.0.1` / 发布 `4.1.0`），Makefile、Dockerfile、CI、build-win.sh 都读它 |
+| `scripts/version.sh` | `show` / `bump` / `release` / `verify`，发版与 CI 校验都走它 |
+| `notes/<版本>.md` | 本轮发布说明（只写本轮），release.yml 缺文件直接失败 |
 
 ---
 
@@ -114,7 +123,7 @@ node --check /tmp/ui_inline.js
 
 ```bash
 bash C:/Script/metatube/_tools/build-win.sh
-# 版本自动取最近 tag，commit 取当前 HEAD；产物在 C:/Script/metatube/_tools/metatube-win/
+# 版本读仓库根 VERSION（本地如 4.0.1），commit 取当前 HEAD；产物在 C:/Script/metatube/_tools/metatube-win/
 # 校验：C:/Script/metatube/_tools/metatube-win/metatube-server.exe -version
 # panel 是 windowsgui 程序，没有 -version 参数（正常）
 ```
@@ -141,24 +150,44 @@ bash C:/Script/metatube/_tools/build-win.sh
 
 ## 6. 发版流程（需用户明确同意后才执行）
 
+版本号唯一来源是仓库根 [`VERSION`](VERSION)，用 [`scripts/version.sh`](scripts/version.sh) 推进：
+
 ```bash
-git add <只加你自己改的文件>       # 禁止 git add -A
-git commit -m "feat(scope): ..."
-git push mine main                # → 触发 test/linter/codeql + :dev 镜像
-git tag -a v1.4.0-ltx.N -m "..."  # 必须是功能完整的那个 commit
-git push mine v1.4.0-ltx.N        # → 触发 release.yml：镜像 + Windows exe + Release
+# 1. 本地每改完一轮（PATCH +1）
+bash scripts/version.sh bump
+
+# 2. 正常提交改动（禁止 git add -A，只加自己改的文件）
+git add <文件...> && git commit -m "feat(scope): ..."
+
+# 3. 发版前必须先做的事（缺一项都算没完成）
+#    a. notes/<下个版本>.md 写本轮更新说明（只写本轮，不带历史）
+#    b. README.md / README.zh-CN.md 把本轮改动**合并**进「分支新增功能」，不是追加"本轮新增"小节
+#    c. FORK.md 同步受影响的章节
+
+# 4. 定版（写 VERSION=4.1.0 + 提交 + 本地打 tag，默认不推送）
+bash scripts/version.sh release --tag
+
+# 5. 推（用户同意后）
+git push mine main && git push mine v4.1
 ```
+
+推 tag 后 `release.yml` 会跑：Prepare（`version.sh verify` 校验 tag/VERSION/notes 自洽）→
+Image amd64/arm64 → Linux binary amd64/arm64 → Windows binaries → Publish Release；
+`docker.yml` 同时推 `:<版本>` 与 `:latest`。
 
 发版后必须核验（三项都做）：
 
-1. `actions/runs` 全部 success（Test / Linter / CodeQL / Image amd64 / Image arm64 / Windows binaries / Publish Release）
-2. Release 资产齐全：2 个 exe + amd64/arm64 镜像包 + 两个 `.sha256` + `docker-compose.yml` + `INSTALL.md`
-3. GHCR `:ltx` 与 `:1.4.0-ltx.N` 指向同一 digest
+1. `actions/runs` 全部 success（Image×2 / Linux×2 / Windows / Publish Release / Publish Docker Image）
+2. Release 资产齐全：Linux amd64/arm64 裸二进制 + 两个镜像包（各带 `.sha256`）+ 2 个 exe
+   + `docker-compose.yml` + `INSTALL.md`
+3. GHCR `:latest` 与 `:<版本>` 指向同一 digest
 
 已知 CI 坑：
 
 - **`windows-latest` runner 会无日志卡死**（实测挂 20+ 分钟）。Windows exe 一律在 `ubuntu-latest`
   交叉编译（`CGO_ENABLED=0 GOOS=windows`），`.syso` 会自动链接，`-H windowsgui` 也正常。
+- **`VERSION` 环境变量会让 `-version` 开关失效**（`cmd/server/main.go` 的判断）：CI 里跑
+  `./metatube-server -version` 必须 `env -u VERSION`，否则进程会直接起服务并挂住。
 - golangci-lint 比 `go vet` 严：注意未使用的常量、`w.ResponseWriter.Status()` 这类可简化的选择器。
 - 网络：本机 DNS 可能被 Clash fake-ip 接管导致 GitHub TLS 失败；联网排查见 §8。
 
@@ -216,6 +245,7 @@ git push mine v1.4.0-ltx.N        # → 触发 release.yml：镜像 + Windows ex
 | 新增/删除接口、路由 | 本文件 §3 目录地图、`FORK.md` 对应章节 |
 | 新增环境变量 / 配置项 | 本文件 §7、`FORK.md` 对应章节 |
 | 构建方式、CI、发版流程 | 本文件 §4/§5/§6、`README*.md` |
+| 版本号规则、发布产物、镜像标签 | 本文件 §2/§6、`FORK.md`「版本号与发版」、`README*.md`；本轮说明写 `notes/<版本>.md` |
 | 用户可见行为 | `README.md` + `README.zh-CN.md` |
 | 平台差异（Windows / Docker） | 本文件 §8，并确认 Docker 侧不受影响 |
 
