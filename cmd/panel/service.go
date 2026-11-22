@@ -5,6 +5,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -20,27 +21,28 @@ const (
 	stateStopped  = "stopped"
 	stateStarting = "starting"
 	stateRunning  = "running"
-	stateExternal = "external" // a listener we did not start (e.g. start.bat)
+	stateExternal = "external" // a listener we did not start (e.g. the console server)
 )
 
 // service supervises the local metatube-server process.
 type service struct {
-	mu     sync.Mutex
-	cfg    *Config
-	cmd    *exec.Cmd
-	state  string
-	pid    int
-	since  time.Time
-	last   string
-	logger *os.File
+	mu      sync.Mutex
+	cfg     *Config
+	cfgPath string
+	cmd     *exec.Cmd
+	state   string
+	pid     int
+	since   time.Time
+	last    string
+	logger  *os.File
 
 	// stopping marks an intentional kill so the wait goroutine does not report
 	// the resulting non-zero exit as a failure.
 	stopping bool
 }
 
-func newService(cfg *Config) *service {
-	s := &service{cfg: cfg, state: stateStopped}
+func newService(cfg *Config, cfgPath string) *service {
+	s := &service{cfg: cfg, cfgPath: cfgPath, state: stateStopped}
 	if portOpen(cfg.ServicePort) {
 		s.state = stateExternal
 	}
@@ -68,11 +70,29 @@ func (s *service) Start() error {
 		s.mu.Unlock()
 		return errors.New("服务已在运行")
 	}
-	exe, port := s.cfg.ServiceExe, s.cfg.ServicePort
+	exe, port := s.cfg.serviceExePath(), s.cfg.ServicePort
 	s.mu.Unlock()
 
 	if _, err := os.Stat(exe); err != nil {
-		return fmt.Errorf("找不到服务端程序：%s", exe)
+		// 配置里的相对路径是相对**面板 exe 所在目录**拼的，手写时很容易多写一层
+		// （例如写成 "metatube-win\metatube-server.exe"，结果拼成
+		// metatube-win\metatube-win\metatube-server.exe）。面板旁边就有同名文件时
+		// 直接用它，并把纠正后的路径写回配置，省得下次再踩。
+		alt := filepath.Join(exeDir(), filepath.Base(exe))
+		if _, altErr := os.Stat(alt); altErr != nil {
+			return fmt.Errorf("找不到服务端程序：%s", exe)
+		}
+		log.Printf("service_exe 指向的 %s 不存在，改用同目录的 %s", exe, alt)
+		exe = alt
+		s.mu.Lock()
+		s.cfg.ServiceExe = alt
+		cfgPath := s.cfgPath
+		s.mu.Unlock()
+		if cfgPath != "" {
+			if err := SaveConfig(cfgPath, s.cfg); err != nil {
+				log.Printf("写回 panel.json 失败：%v", err)
+			}
+		}
 	}
 	if portOpen(port) {
 		s.mu.Lock()
@@ -84,8 +104,8 @@ func (s *service) Start() error {
 
 	cmd := exec.Command(exe, s.cfg.serviceArgs()...)
 	cmd.Dir = filepath.Dir(exe)
-	// start.bat created this folder before running the server; do the same so a
-	// fresh copy has somewhere to put the database.
+	// The server expects data/ to exist; create it so a fresh copy has somewhere
+	// to put the database.
 	_ = os.MkdirAll(filepath.Join(cmd.Dir, "data"), 0o755)
 	// Keep the server's own log so a failed start can be explained.
 	if f, err := os.OpenFile(s.logPath(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644); err == nil {
@@ -222,7 +242,7 @@ func (s *service) Status() map[string]any {
 		"state": state,
 		"pid":   pid,
 		"port":  s.cfg.ServicePort,
-		"exe":   s.cfg.ServiceExe,
+		"exe":   s.cfg.serviceExePath(),
 		"error": last,
 	}
 	if !since.IsZero() && (state == stateRunning || state == stateStarting) {

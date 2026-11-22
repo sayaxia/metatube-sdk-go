@@ -35,7 +35,7 @@ type Config struct {
 }
 
 // defaultPanelPort matches the port the shipped panel.json under
-// C:/Script/metatube/_tools/metatube-win uses, so a fresh install behaves like
+// C:/Script/metatube/metatube-win uses, so a fresh install behaves like
 // the existing one. It sits inside this machine's dynamic port range, which
 // means Hyper-V / WinNAT can reserve it after a reboot; start() then walks
 // forward to the next bindable port and persists it.
@@ -103,16 +103,25 @@ func (c *Config) normalize() {
 	if c.ServicePort <= 0 || c.ServicePort > 65535 {
 		c.ServicePort = 8080
 	}
-	if c.ServiceExe == "" {
-		c.ServiceExe = "metatube-server.exe"
-	}
-	if !filepath.IsAbs(c.ServiceExe) {
-		c.ServiceExe = filepath.Join(exeDir(), c.ServiceExe)
-	}
 	c.Backend = strings.TrimRight(strings.TrimSpace(c.Backend), "/")
 	if c.Backend == "" {
 		c.Backend = fmt.Sprintf("http://127.0.0.1:%d", c.ServicePort)
 	}
+}
+
+// serviceExePath resolves the server binary to launch. Empty means "the
+// metatube-server.exe next to the panel"; relative values are also taken
+// relative to the panel's own directory. Keeping the raw ServiceExe untouched
+// means panel.json stays portable (an empty value keeps working after the whole
+// folder is moved).
+func (c *Config) serviceExePath() string {
+	if c.ServiceExe == "" {
+		return filepath.Join(exeDir(), "metatube-server.exe")
+	}
+	if !filepath.IsAbs(c.ServiceExe) {
+		return filepath.Join(exeDir(), c.ServiceExe)
+	}
+	return c.ServiceExe
 }
 
 // localBackend reports whether the configured backend is the service this panel
@@ -135,8 +144,8 @@ func (c *Config) localBackend() bool {
 	return port == strconv.Itoa(c.ServicePort)
 }
 
-// serviceArgs mirrors what start.bat passes, so the database path does not
-// change depending on who launched the server.
+// serviceArgs keeps the console defaults (data/metatube.db), so the database
+// path does not change depending on who launched the server.
 func (c *Config) serviceArgs() []string {
 	args := []string{"--port", strconv.Itoa(c.ServicePort)}
 	if len(c.ServiceArgs) > 0 {

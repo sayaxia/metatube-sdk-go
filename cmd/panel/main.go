@@ -36,7 +36,7 @@ func main() {
 		cfg.PanelPort = *panelPort
 	}
 	if *servicePort > 0 && *servicePort != cfg.ServicePort {
-		// start.bat passes PORT; keep the backend in step with it.
+		// --service-port overrides the stored port; keep the backend in step.
 		cfg.ServicePort = *servicePort
 		if strings.HasPrefix(cfg.Backend, "http://127.0.0.1:") || strings.HasPrefix(cfg.Backend, "http://localhost:") {
 			cfg.Backend = "http://127.0.0.1:" + strconv.Itoa(*servicePort)
@@ -58,7 +58,7 @@ func main() {
 		return
 	}
 
-	svc := newService(cfg)
+	svc := newService(cfg, path)
 	srv := newPanelServer(cfg, path, svc)
 	if err := srv.start(); err != nil {
 		fail("面板启动失败", err.Error())

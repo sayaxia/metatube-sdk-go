@@ -285,8 +285,11 @@ CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -tags experimental \
 
 ## 桌面面板（`metatube-panel.exe`）
 
-面板把同一个控制台页面装进一个真正的桌面窗口，并负责起停后端服务。双击 `start.bat` 时优先
-启动它；没有它（或设了 `MT_NO_PANEL=1`）才回到「控制台里直接跑服务端」的老路子。
+面板把同一个控制台页面装进一个真正的桌面窗口，并负责起停后端服务。**双击 `metatube-panel.exe`**
+即可启动：面板按 `panel.json` 的 `auto_start` 自己把后端拉起来，不需要额外的启动脚本。
+想不经面板、在控制台直接跑服务端时，用
+`metatube-server.exe --port 8080 --dsn data/metatube.db --request-timeout 60s`（参数要和面板一致，
+否则数据库不会落在 `data/`）。
 
 | 行为 | 说明 |
 |---|---|
@@ -297,7 +300,7 @@ CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -tags experimental \
 | 服务托管 | 面板用 `--port <service_port> --dsn data/metatube.db --request-timeout 60s` 起 `metatube-server.exe`，输出写进 `metatube-service.log`；端口被外部实例占用时标成「外部实例」，不抢不停 |
 | 单实例 | 再开一次只会把已有窗口叫到前台 |
 
-面板自己也跑一个小 HTTP 服务（默认 `127.0.0.1:8918`），页面、控制接口和 `/v1` 代理都由它提供，
+面板自己也跑一个小 HTTP 服务（默认 `127.0.0.1:8081`，被占用时自动顺延），页面、控制接口和 `/v1` 代理都由它提供，
 所以**服务停了页面还在**——这正是能「重启服务」的前提。
 
 ```text
@@ -318,12 +321,17 @@ ANY  /v1/*          反向代理到 backend，并把 token 以 Bearer 注入
 {
   "backend": "http://127.0.0.1:8080",
   "token": "",
-  "service_exe": "metatube-server.exe",
+  "service_exe": "",
   "service_port": 8080,
-  "panel_port": 8918,
+  "panel_port": 8081,
   "auto_start": true
 }
 ```
+
+- `service_exe` 留空表示用**面板同目录**的 `metatube-server.exe`（推荐，整个目录搬走也不用改）。
+  手写相对路径也是相对面板目录拼，多写一层会拼出双层路径；写绝对路径时 JSON 里的 `\` 必须成对
+  （`"C:\\tools\\metatube-server.exe"`），否则会报 `invalid escape sequence`。
+  目标文件不存在但同目录有同名文件时，面板会自动改用并写回配置。
 
 - `auto_start` 只在 `backend` 指向本机同端口（`127.0.0.1:<service_port>`）时才真的去起服务；
   指向 NAS 时不碰本机进程。

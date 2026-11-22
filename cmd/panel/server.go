@@ -161,7 +161,7 @@ func (p *panelServer) handleConfig(w http.ResponseWriter, r *http.Request) {
 			"backend":   p.cfg.Backend,
 			"has_token": p.cfg.Token != "",
 			"service": map[string]any{
-				"exe":  p.cfg.ServiceExe,
+				"exe":  p.cfg.serviceExePath(),
 				"port": p.cfg.ServicePort,
 			},
 		})

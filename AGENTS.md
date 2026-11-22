@@ -68,7 +68,7 @@
 ```
 metatube-server-ltx/     本仓库（服务端）
 metatube-plex-plugins/   Plex 插件仓库（姊妹项目）
-_tools/                  build-win.sh 构建脚本、metatube-win/ exe 运行时、_subrule/ 离线回归测试
+metatube-win/            build-win.sh 构建脚本、两个 exe 与运行时数据（panel.json/data/）、_subrule/ 离线回归测试
 temp/                    临时目录：排障/试运行产生的脚本、dump、截图全放这里（不放仓库内）
 ```
 
@@ -132,9 +132,9 @@ node --check /tmp/ui_inline.js
 **Windows 产物**（两个 exe，脚本在仓库外）：
 
 ```bash
-bash C:/Script/metatube/_tools/build-win.sh
-# 版本读仓库根 VERSION（本地如 4.0.1），commit 取当前 HEAD；产物在 C:/Script/metatube/_tools/metatube-win/
-# 校验：C:/Script/metatube/_tools/metatube-win/metatube-server.exe -version
+bash C:/Script/metatube/metatube-win/build-win.sh
+# 版本读仓库根 VERSION（本地如 4.0.1），commit 取当前 HEAD；产物在 C:/Script/metatube/metatube-win/
+# 校验：C:/Script/metatube/metatube-win/metatube-server.exe -version
 # panel 是 windowsgui 程序，没有 -version 参数（正常）
 ```
 
@@ -218,7 +218,18 @@ Image amd64/arm64 → Linux binary amd64/arm64 → Windows binaries → Publish 
 | `TOKEN` | 可选访问令牌，内网默认不设 |
 | `panel.json` | 面板配置（后端地址、token、端口） |
 
-服务端默认端口 8080；`start.bat` 拉起面板，面板托管服务并常驻托盘。
+服务端默认端口 8080。日常启动**双击 `metatube-panel.exe`** 即可：面板按 `panel.json` 的 `auto_start`
+自己把后端拉起来，并常驻托盘（原 `start.bat` 已于 2026-11-22 删除，它唯一的额外副作用是把
+`service_port` 强制成 8080，反而会覆盖面板的自定义端口）。
+
+需要**不经面板、在控制台直跑服务端**排障时，必须带上与面板一致的参数，否则数据库不会落在 `data/`：
+
+```bash
+cd C:/Script/metatube/metatube-win
+./metatube-server.exe --port 8080 --dsn data/metatube.db --request-timeout 60s
+```
+
+代理与令牌仍走环境变量（`MT_PROXY_URL` / `MT_SYSTEM_PROXY` / `TOKEN`），在同一条命令前 export 即可。
 
 ---
 
@@ -257,7 +268,11 @@ Image amd64/arm64 → Linux binary amd64/arm64 → Windows binaries → Publish 
   成功后把实际端口写回 `panel.json`，日志记在 `%LOCALAPPDATA%\MetaTubePanel\panel.log`。
   默认端口 `defaultPanelPort = 8081`（`cmd/panel/config.go`）。
 - 判断面板是否在跑：`Get-NetTCPConnection -LocalPort <port>` + `curl --noproxy '*' http://127.0.0.1:<port>/panel/info`。
-  `panel.json` 里 `service_exe` 必须是**绝对路径**，指向 `_tools/metatube-win/metatube-server.exe`。
+  `panel.json` 的 `service_exe` **留空最稳**：面板会自动取自己同目录的 `metatube-server.exe`。
+  写相对路径是相对**面板 exe 目录**拼的，多写一层就变成 `metatube-win\metatube-win\metatube-server.exe`
+  而报「找不到服务端程序」；写绝对路径则 JSON 里反斜杠必须写成 `\\`，否则报
+  `invalid escape sequence`（`\m` 尤其容易踩）。`service.Start()` 已有兜底：目标不存在但同目录有同名
+  文件时自动改用并把纠正后的绝对路径写回 `panel.json`，日志里会留一行说明。
 
 ---
 

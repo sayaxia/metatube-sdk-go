@@ -236,3 +236,61 @@
 - 部署：用户已用 `panel_port: 8081` 让面板恢复正常；**新 exe 尚未替换**，待关面板后覆盖
   `_tools/metatube-win/metatube-panel.exe`。
 - 备注：`cmd` 目录保持原名（用户决定），因为 `cmd/server` 同时用于 Windows 与 Linux/Docker。
+## 2026-11-22 17:50 · WorkBuddy · 仓库外目录 `_tools` 改名 `metatube-win` 并扁平化
+
+- 触发：用户把 `C:/Script/metatube/_tools` 改名为 `metatube-win`；改名后内层仍有同名
+  `metatube-win/`，形成 `metatube-win/metatube-win/*.exe` 双层重名。经确认改为**扁平化**：
+  内层的 exe / panel.json / translate.json / data / start.bat 全部上提到 `metatube-win/` 根，
+  删掉内层目录。
+- 新布局：`C:/Script/metatube/metatube-win/` 同层放 `build-win.sh`、`compare_bundle.py`、
+  `_subrule/`、`metatube-panel.exe`、`metatube-server.exe`、`panel.json`、`translate.json`、
+  `start.bat`、`data/`、`metatube-service.log`。
+- 连带修正：
+  - `panel.json` 的 `service_exe` 先改成绝对路径（当时以为必须绝对），后续修正见下一条 18:11 记录。
+  - `build-win.sh`：`out="$here/metatube-win"` 改为 `out="$here"`，用法注释同步。
+  - 本仓库 `AGENTS.md`（目录布局、构建命令、`service_exe` 说明）与 `cmd/panel/config.go` 注释；
+    `AGENT_LOG.md` 历史条目保持原样。
+  - 姊妹仓库 `metatube-plex-plugins/AGENTS.md`、仓库外 `交接提示词.md`、`本地README.md`、
+    `temp/README.md` 同步。
+- 验证：`metatube-panel.exe -no-window -no-service` 启动后 `/panel/info` 返回 200，进程正常退出；
+  `start.bat` 靠 `%~dp0` 相对定位无需改；桌面/开始菜单无旧路径快捷方式，计划任务无相关项。
+- 备注：顺带发现本地 `metatube-server.exe` 仍是 `v1.4.0-ltx.9-bf2c2e9`（11-16 编译），
+  落后于已发布的 `v4.1`；不影响面板，需要时跑 `bash metatube-win/build-win.sh` 重编。
+## 2026-11-22 18:11 · WorkBuddy · `service_exe` 相对路径多拼一层 → 面板拉不起后端，加自愈
+
+- 用户反馈：按上一轮提示把 `service_exe` 写成 `metatube-win\metatube-server.exe` 后面板起不来后端。
+  面板日志 `%LOCALAPPDATA%\MetaTubePanel\panel.log` 直接给出原因：
+  `自动启动服务：找不到服务端程序：C://Script//metatube//metatube-win//metatube-win//metatube-server.exe`。
+  因为 `normalize()` 对**任何相对路径**都按面板 exe 目录 `filepath.Join` 一次；扁平化后面板本身就在
+  `metatube-win/` 里，再写一层 `metatube-win\` 正好拼成双层。
+- 顺手踩到的第二个坑：手改成绝对路径但 JSON 里只写单个反斜杠，面板报
+  `解析 panel.json 失败：invalid escape sequence \m in string`（`\m`）。**JSON 里路径的 `\` 必须成对**。
+- 改动：
+  - `panel.json`：`service_exe` 改为**空字符串**（等价于「面板同目录的 `metatube-server.exe`」）。
+  - `cmd/panel/config.go`：新增 `serviceExePath()` 统一解析——空 → `exeDir()/metatube-server.exe`、
+    相对 → 相对 `exeDir()` 拼接、绝对 → 原样；`normalize()` **不再改写** `ServiceExe`，所以 `panel.json`
+    里的空值不会因为面板回写配置而变成绝对路径，整个目录搬走依旧可用。`/panel/info` 与 `/panel/status`
+    返回解析后的真实路径。
+  - `cmd/panel/service.go`：`service` 增加 `cfgPath`（`newService(cfg, cfgPath)`）；`Start()` 在
+    `os.Stat(exe)` 失败时回退到 `exeDir()/filepath.Base(exe)`，命中则用它、记一行日志，并把纠正后的
+    绝对路径 `SaveConfig` 写回 `panel.json`；两者都不存在才报原来的错。
+  - `AGENTS.md` §8 改写（留空最稳 + 两种手写踩坑 + 自愈行为）；`FORK.md` 配置示例同步。
+- 验证：
+  - 故意把 `service_exe` 写成 `metatube-win\metatube-server.exe`：日志出现
+    `service_exe 指向的 ...\metatube-win\metatube-server.exe 不存在，改用同目录的 ...\metatube-server.exe`，
+    `8080` / `8081` 均 200，`panel.json` 被写回绝对路径（自愈生效）。
+  - 再改回空字符串：`8080` / `8081` 均 200，配置未被无谓重写。
+  - `go vet ./cmd/panel/` 通过、`gofmt -l` 无输出；新 exe 已替换 `metatube-win/metatube-panel.exe`
+    （旧版备份 `temp/metatube-panel.exe.bak2`）。
+## 2026-11-22 18:20 · WorkBuddy · 删除 `start.bat`（双击入口统一为面板）
+
+- 理由：面板存在时 `start.bat` 只剩 `start "" metatube-panel.exe --service-port 8080` 再退出，
+  等价于双击面板；它还会把 `service_port` **强制成 8080**，覆盖 `panel.json` 里的自定义端口，
+  也会架空面板刚加的端口顺延自愈。用户确认不再需要 `MT_NO_PANEL=1` 的控制台模式。
+- 处理：文件移到仓库外 `temp/start.bat.bak`（可回退）。
+- 文档：`AGENTS.md` §7 改为「日常双击 `metatube-panel.exe`」，并给出控制台排障命令
+  `./metatube-server.exe --port 8080 --dsn data/metatube.db --request-timeout 60s`（必须带 dsn，
+  否则数据库不落在 `data/`）；`FORK.md` 桌面面板章节同步为双击 exe。
+- 代码：`cmd/panel` 里四处提到 `start.bat` 的注释改写（`config.go` 的 serviceArgs、`main.go` 的
+  `--service-port`、`service.go` 的 stateExternal 与 data 目录创建），纯注释，无行为变化。
+- 验证：`go vet ./cmd/panel/` 与 `gofmt -l cmd/panel/` 均无输出；exe 未重编（注释不影响二进制行为）。
