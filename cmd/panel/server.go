@@ -5,6 +5,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -61,16 +62,51 @@ func (p *panelServer) backendURL() *url.URL {
 }
 
 // start binds the panel port and serves until Shutdown is called.
+//
+// A port can be unbindable on Windows even when nothing is listening on it:
+// Hyper-V / WinNAT reserves whole ranges (see
+// `netsh int ipv4 show excludedportrange protocol=tcp`) and binding inside one
+// fails with WSAEACCES ("An attempt was made to access a socket in a way
+// forbidden by its access permissions"). Those ranges are re-negotiated after
+// reboots and can eat any port inside the dynamic range, so a port that worked
+// yesterday may be taken today. Instead of refusing to start, walk forward to
+// the next bindable port and persist it, so the next launch goes straight there.
 func (p *panelServer) start() error {
-	addr := net.JoinHostPort("127.0.0.1", fmt.Sprint(p.cfg.PanelPort))
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		return fmt.Errorf("面板端口 %d 无法监听：%w", p.cfg.PanelPort, err)
+	// Windows reservations come in contiguous blocks (100 ports is common on
+	// machines where the dynamic range was narrowed to 1024-14999), so the
+	// probe window has to be wide enough to step over a couple of them. A
+	// refused bind returns immediately, so walking a few hundred ports costs
+	// well under a millisecond.
+	const probeLimit = 300
+
+	want := p.cfg.PanelPort
+	var lastErr error
+
+	for port := want; port <= 65535 && port < want+probeLimit; port++ {
+		// Never take the port the supervised service is configured to use.
+		if port == p.cfg.ServicePort {
+			continue
+		}
+		addr := net.JoinHostPort("127.0.0.1", fmt.Sprint(port))
+		ln, err := net.Listen("tcp", addr)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		if port != want {
+			log.Printf("面板端口 %d 不可用（%v），改用 %d", want, lastErr, port)
+			p.cfg.PanelPort = port
+			if err := SaveConfig(p.cfgPath, p.cfg); err != nil {
+				log.Printf("写回配置失败：%v", err)
+			}
+		}
+		srv := &http.Server{Handler: p.routes(), ReadHeaderTimeout: 10 * time.Second}
+		p.http = srv
+		go func() { _ = srv.Serve(ln) }()
+		return nil
 	}
-	srv := &http.Server{Handler: p.routes(), ReadHeaderTimeout: 10 * time.Second}
-	p.http = srv
-	go func() { _ = srv.Serve(ln) }()
-	return nil
+
+	return fmt.Errorf("面板端口 %d 及其后 %d 个端口都无法监听（最后一次错误：%v）", want, probeLimit, lastErr)
 }
 
 func (p *panelServer) url() string {

@@ -34,11 +34,18 @@ type Config struct {
 	ServiceArgs []string `json:"service_args,omitempty"`
 }
 
+// defaultPanelPort matches the port the shipped panel.json under
+// C:/Script/metatube/_tools/metatube-win uses, so a fresh install behaves like
+// the existing one. It sits inside this machine's dynamic port range, which
+// means Hyper-V / WinNAT can reserve it after a reboot; start() then walks
+// forward to the next bindable port and persists it.
+const defaultPanelPort = 8081
+
 func defaultConfig() *Config {
 	return &Config{
 		Backend:     "http://127.0.0.1:8080",
 		ServicePort: 8080,
-		PanelPort:   8918,
+		PanelPort:   defaultPanelPort,
 		AutoStart:   true,
 	}
 }
@@ -91,7 +98,7 @@ func LoadConfig(explicit string) (*Config, string, error) {
 
 func (c *Config) normalize() {
 	if c.PanelPort <= 0 || c.PanelPort > 65535 {
-		c.PanelPort = 8918
+		c.PanelPort = defaultPanelPort
 	}
 	if c.ServicePort <= 0 || c.ServicePort > 65535 {
 		c.ServicePort = 8080

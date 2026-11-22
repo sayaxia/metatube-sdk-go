@@ -211,3 +211,28 @@
 - 待办/风险：本机无法确认容器所用 image digest（SSH 到 <NAS-A> 用默认密钥被拒、本机无 docker CLI），
   版本串带完整 commit 可认定跑的是 v4.1 镜像。若 NAS 上的 compose 还留着旧镜像名 `metatube-server:ltx`，
   下次 `up -d` 会拉不到新版，建议一并改成 `metatube-server-ltx:v4.1`（或 `:latest`）。
+## 2026-11-22 17:10 · WorkBuddy · 面板端口被系统保留区间占用 → 加自动顺延
+
+- 现象：迁目录后面板启动失败，弹「面板端口 8918 无法监听：listen tcp 127.0.0.1:8918: bind:
+  An attempt was made to access a socket in a way forbidden by its access permissions」
+  （WinError 10013 / WSAEACCES）。**不是路径问题，也不是端口冲突**。
+- 根因：Hyper-V / WinNAT 把 `8902-9001` 整段列入 TCP 保留区间，8918 落在其中；
+  本机动态端口范围被改窄成 `1024-14999`（默认应为 49152-65535），所以 8xxx/9xxx 反复中招。
+  保留区间每次重启会重排，表现为「昨天能开今天打不开」。
+  排查命令：`netsh interface ipv4 show excludedportrange protocol=tcp`、`netsh int ipv4 show dynamicport tcp`。
+- 改动：
+  - `cmd/panel/config.go`：新增常量 `defaultPanelPort = 8081`，`defaultConfig()` 与 `normalize()`
+    的兜底值从硬编码 `8918` 改为引用它（用户当前 `panel.json` 就是 8081）。
+  - `cmd/panel/server.go`：`start()` 改为**绑不上就顺延**——从配置端口往后试最多 300 个
+    （跳过 `service_port`，绝不抢服务端口），成功则记录日志、把实际端口写回 `panel.json`
+    并继续启动；300 个都失败才报错退出。顺延只发生在启动阶段，运行期不会漂移。
+  - `AGENTS.md` §8 新增「Windows 面板端口」小节（症状、排查命令、本机动态范围、自愈行为）。
+- 验证：
+  - `netsh` 输出确认 `8902-9001` 等区间；Python bind 实测 8918/8919/8920 全部 WSAEACCES，18918 正常。
+  - 首次实现 `probeLimit=20` 实测**不够**（8918+20=8937 仍在 8902-9001 内），改为 300 后复测：
+    日志 `面板端口 8918 不可用（…9001…），改用 9002`，配置写回 `panel_port: 9002`，
+    `curl /panel/info` 返回 200。测试用独立 `-config` 文件，未污染线上 `panel.json`。
+  - `go vet ./cmd/panel/` 通过；新 exe 编译到 `temp/`（运行中的面板锁着目标文件，不能就地覆盖）。
+- 部署：用户已用 `panel_port: 8081` 让面板恢复正常；**新 exe 尚未替换**，待关面板后覆盖
+  `_tools/metatube-win/metatube-panel.exe`。
+- 备注：`cmd` 目录保持原名（用户决定），因为 `cmd/server` 同时用于 Windows 与 Linux/Docker。

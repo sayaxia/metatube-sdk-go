@@ -245,6 +245,20 @@ Image amd64/arm64 → Linux binary amd64/arm64 → Windows binaries → Publish 
   连包目录都不扫，所以 Docker 镜像天然不含 Windows 资源。
 - 改 `DefaultPrefs.json` 之类的枚举属于插件仓库，不在这里。
 
+**Windows 面板端口**
+
+- 报 `bind: An attempt was made to access a socket in a way forbidden by its access
+  permissions`（WinError 10013 / WSAEACCES）时**不是端口冲突**，而是端口落进了系统保留区间：
+  Hyper-V / WinNAT 从动态端口范围里挖走的块。排查：
+  `netsh interface ipv4 show excludedportrange protocol=tcp` 和 `netsh int ipv4 show dynamicport tcp`。
+- **本机动态端口范围被改窄成 1024-14999**（不是默认的 49152-65535），所以 8xxx/9xxx 一批端口反复被抢；
+  保留区间每次重启会重排，昨天能用的端口今天可能就绑不上。
+- `cmd/panel/server.go` 的 `start()` 已加自愈：配置端口绑不上就往上试 300 个（跳过 `service_port`），
+  成功后把实际端口写回 `panel.json`，日志记在 `%LOCALAPPDATA%\MetaTubePanel\panel.log`。
+  默认端口 `defaultPanelPort = 8081`（`cmd/panel/config.go`）。
+- 判断面板是否在跑：`Get-NetTCPConnection -LocalPort <port>` + `curl --noproxy '*' http://127.0.0.1:<port>/panel/info`。
+  `panel.json` 里 `service_exe` 必须是**绝对路径**，指向 `_tools/metatube-win/metatube-server.exe`。
+
 ---
 
 ## 9. 文档更新义务
